@@ -32,13 +32,15 @@ from models.trade import Trade, ExitReason, Signal
 from strategies.common import hl_spread_stdev
 
 
-def simulate_short(bars: Sequence, params: StrategyParams) -> list[Trade]:
+def simulate_short(
+    bars: Sequence, params: StrategyParams, *, sigma_override: float | None = None,
+) -> list[Trade]:
     if params.side != "short":
         raise ValueError("simulate_short needs side='short'")
     if len(bars) < 2:
         return []
 
-    sigma = hl_spread_stdev(bars)
+    sigma = sigma_override if sigma_override is not None else hl_spread_stdev(bars)
     sigma_off = params.sigma_mult * sigma
     limit_off = params.limit_mult * sigma
     stop_off = params.stop_mult * sigma
@@ -117,12 +119,17 @@ def _scan_window_short(*, bars: Sequence, entry_idx: int, tp: float, stop: float
     return ExitReason.DAY_MAX, bars[max_idx].close, bars[max_idx].d, max_hold
 
 
-def short_signal(bars: Sequence, params: StrategyParams, symbol: str) -> Signal:
+def short_signal(
+    bars: Sequence, params: StrategyParams, symbol: str,
+    *, sigma_override: float | None = None,
+) -> Signal:
     if params.side != "short":
         raise ValueError("short_signal needs side='short'")
-    if len(bars) < 2:
-        raise ValueError(f"{symbol}: need at least 2 bars to compute a signal")
-    sigma = hl_spread_stdev(bars)
+    if not bars:
+        raise ValueError(f"{symbol}: need at least 1 bar to compute a signal")
+    if sigma_override is None and len(bars) < 2:
+        raise ValueError(f"{symbol}: need at least 2 bars to compute sigma (or pass sigma_override)")
+    sigma = sigma_override if sigma_override is not None else hl_spread_stdev(bars)
     last = bars[-1]
     entry_limit = last.close + params.sigma_mult * sigma
     tp_price = entry_limit - params.limit_mult * sigma

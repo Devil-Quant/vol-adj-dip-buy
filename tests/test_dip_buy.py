@@ -1,5 +1,9 @@
-"""Path coverage for the Buy strategy. We feed synthetic OHLC so we can
-predict the exit outcome day-by-day, then assert the trade list matches."""
+"""Path coverage for the Buy strategy.
+
+We inject a fixed `sigma` so test fixtures don't have to predict the H/L
+stdev of the whole bar list. With `sigma=1.0`, entry / TP / stop fall on
+crisp integer boundaries which make the OHLC design obvious.
+"""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -31,143 +35,106 @@ PARAMS = StrategyParams(
     side="buy", sigma_mult=1.0, limit_mult=0.5, stop_mult=3.0,
     lookback_days=20, holding_window=20, holding_max=24, order_size_usd=100_000.0,
 )
-
-
-def _sigma_for(bars):
-    # daily H/L spreads of our fixtures, sample stdev
-    from statistics import stdev
-    return stdev([b.high - b.low for b in bars])
+SIGMA = 1.0  # injected for all tests
+# With prev_close=100 and SIGMA=1:
+#   entry_limit = 99
+#   tp_price    = 100.5
+#   stop_price  = 96
 
 
 def test_intraday_take_profit():
-    """Today opens dipping below prev close enough to hit entry_limit and
-    rallies through tp_price the same day."""
-    # 5 warmup bars give a known sigma. Then day 6 is the trade day.
-    # Use spreads that produce sigma = 1.0 exactly.
-    # spreads = [0, 2, 0, 2, 0] -> stdev = 1.0954... rather messy. Easier:
-    # spreads = [1, 1, 1, 3, 1] -> stdev exists. Let's compute it then use it.
-    warmup = [
-        (100, 101, 100, 100.5),  # spread 1
-        (100, 101, 100, 100.5),  # spread 1
-        (100, 101, 100, 100.5),  # spread 1
-        (100, 103, 100, 100.5),  # spread 3
-        (100, 101, 100, 100.5),  # spread 1
-    ]
-    bars = make_bars(*warmup)
-    sigma = _sigma_for(bars)
-    # entry_limit = prev_close - 1*sigma = 100.5 - sigma
-    # tp_price    = prev_close + 0.5*sigma
-    entry_limit = 100.5 - sigma
-    tp_price = 100.5 + 0.5 * sigma
-    # Day 6 must: low <= entry_limit AND high >= tp_price
-    day6 = (100.5, tp_price + 0.10, entry_limit - 0.05, 100.5)
-    bars.append(Bar(date(2026, 1, 11), *day6))
-
-    trades = simulate_buy(bars, PARAMS)
-    fills = [t for t in trades if t.filled]
-    assert len(fills) >= 1
-    # the last fill (day 6) should be intraday TP
-    last = fills[-1]
+    """Trade day's range covers BOTH entry_limit (99) and tp_price (100.5)."""
+    bars = make_bars(
+        (100, 101, 99, 100),     # warmup day t=0; prev_close for trade day below
+        (100, 101, 98.5, 100),   # trade day: low=98.5 (<99 entry), high=101 (>100.5 tp) -> intraday TP
+    )
+    trades = simulate_buy(bars, PARAMS, sigma_override=SIGMA)
+    last = trades[-1]
+    assert last.filled is True
     assert last.exit_reason == ExitReason.INTRADAY_TP
     assert last.intraday_tp is True
     assert last.days_held == 0
-    assert last.pnl_usd is not None and last.pnl_usd > 0
+    # PnL = (tp - entry) * shares = (100.5 - 99) * (100000/99) ~ 1515.15
+    assert last.pnl_usd is not None and last.pnl_usd == pytest.approx(1515.15, abs=0.1)
 
 
 def test_overnight_take_profit():
-    """Entry fills day 6, no same-day TP, then day 7 high crosses tp_price."""
-    warmup = [(100, 101, 100, 100.5)] * 4 + [(100, 103, 100, 100.5)]
-    bars = make_bars(*warmup)
-    sigma = _sigma_for(bars)
-    entry_limit = 100.5 - sigma
-    tp_price = 100.5 + 0.5 * sigma
-    stop_price = entry_limit - 3.0 * sigma
-
-    # Day 6: dips to fill, but high stays below tp -> Open
-    bars.append(Bar(date(2026, 1, 11), 100.4, tp_price - 0.5, entry_limit - 0.05, 100.4))
-    # Day 7: high crosses tp_price
-    bars.append(Bar(date(2026, 1, 12), 100.5, tp_price + 0.10, 100.0, 100.6))
-    # Pad more days so window scan doesn't hit end-of-bars
-    for i in range(2, 25):
-        bars.append(Bar(date(2026, 1, 11) + timedelta(days=i), 100.5, 101.0, 99.0, 100.5))
-
-    trades = simulate_buy(bars, PARAMS)
-    # the trade entered on day index 5 (the new day 6 we added)
-    entry = trades[4]  # trades start at i=1 -> index 0 is for bar idx 1; bar idx 5 -> trades[4]
-    assert entry.filled
+    """Trade day fills but its high stays below tp. Day t+1 crosses tp."""
+    bars = make_bars(
+        (100, 101, 99, 100),     # warmup
+        (100, 100.2, 98.5, 100), # trade day: fills (low<99), high=100.2 < tp=100.5 -> open
+        (100, 101.0, 99.5, 100), # day +1: high=101 >= tp=100.5 -> overnight TP
+        (100, 100, 99.5, 100),
+    )
+    trades = simulate_buy(bars, PARAMS, sigma_override=SIGMA)
+    entry = trades[0]  # index 0 = bar i=1, which is the trade day
+    assert entry.filled is True
+    assert entry.intraday_tp is False
     assert entry.exit_reason == ExitReason.OVERNIGHT_TP
     assert entry.days_held == 1
     assert entry.pnl_usd is not None and entry.pnl_usd > 0
 
 
 def test_overnight_stop_loss():
-    warmup = [(100, 101, 100, 100.5)] * 4 + [(100, 103, 100, 100.5)]
-    bars = make_bars(*warmup)
-    sigma = _sigma_for(bars)
-    entry_limit = 100.5 - sigma
-    stop_price = entry_limit - 3.0 * sigma
-
-    # Day 6 entry fills, no intraday TP
-    bars.append(Bar(date(2026, 1, 11), 100.4, 100.45, entry_limit - 0.05, 100.4))
-    # Day 7: low crashes through stop_price
-    bars.append(Bar(date(2026, 1, 12), 100.4, 100.5, stop_price - 0.10, 99.0))
-    for i in range(2, 25):
-        bars.append(Bar(date(2026, 1, 11) + timedelta(days=i), 100.5, 100.6, 100.4, 100.5))
-
-    trades = simulate_buy(bars, PARAMS)
-    entry = trades[4]
-    assert entry.filled
+    """Trade day fills, high stays below tp, day +1 crashes below stop=96."""
+    bars = make_bars(
+        (100, 101, 99, 100),     # warmup
+        (100, 100.2, 98.5, 100), # trade day: fills, open
+        (100, 100, 95.5, 96),    # day +1: low=95.5 < stop=96 -> STOP hits
+        (100, 100, 95, 95),
+    )
+    trades = simulate_buy(bars, PARAMS, sigma_override=SIGMA)
+    entry = trades[0]
+    assert entry.filled is True
     assert entry.exit_reason == ExitReason.STOP
     assert entry.days_held == 1
     assert entry.pnl_usd is not None and entry.pnl_usd < 0
+    # PnL = (96 - 99) * shares = -3 * (100000/99) ~ -3030.30
+    assert entry.pnl_usd == pytest.approx(-3030.30, abs=0.1)
 
 
 def test_no_fill():
-    """Day's range never touches entry_limit -> no trade."""
-    bars = make_bars(*([(100, 101, 100, 100.5)] * 5))
-    sigma = _sigma_for(bars)
-    entry_limit = 100.5 - sigma
-    bars.append(Bar(date(2026, 1, 11), 100.5, 101.0, entry_limit + 0.5, 100.7))
-    trades = simulate_buy(bars, PARAMS)
-    assert trades[-1].filled is False
-    assert trades[-1].exit_reason == ExitReason.NONE
-    assert trades[-1].pnl_usd is None
+    bars = make_bars(
+        (100, 101, 99, 100),     # warmup
+        (100, 101, 99.5, 100),   # trade day: low=99.5 > entry=99 -> miss
+    )
+    trades = simulate_buy(bars, PARAMS, sigma_override=SIGMA)
+    last = trades[-1]
+    assert last.filled is False
+    assert last.exit_reason == ExitReason.NONE
+    assert last.pnl_usd is None
 
 
 def test_day_max_exit():
-    """Neither TP nor stop hits within window; exits at close of day +24."""
-    warmup = [(100, 101, 100, 100.5)] * 4 + [(100, 103, 100, 100.5)]
-    bars = make_bars(*warmup)
-    sigma = _sigma_for(bars)
-    entry_limit = 100.5 - sigma
-    tp_price = 100.5 + 0.5 * sigma
-    stop_price = entry_limit - 3.0 * sigma
-    # Entry on day 6
-    bars.append(Bar(date(2026, 1, 11), 100.4, 100.45, entry_limit - 0.05, 100.4))
-    # 24+ flat-ish days that stay between stop and TP
-    for i in range(1, 30):
-        d = date(2026, 1, 11) + timedelta(days=i)
-        bars.append(Bar(d, 100.4, tp_price - 0.05, stop_price + 0.05, 100.4))
-
-    trades = simulate_buy(bars, PARAMS)
-    entry = trades[4]
-    assert entry.filled
+    """Neither TP nor stop hits within window; exit at close of day +24."""
+    bars = make_bars((100, 101, 99, 100))         # warmup
+    bars.append(Bar(date(2026, 1, 6), 100, 100.2, 98.5, 100))  # trade day, opens position
+    # 24 future days all staying between stop=96 and tp=100.5
+    for i in range(1, 25):
+        bars.append(Bar(date(2026, 1, 6) + timedelta(days=i), 99, 100.2, 98, 99.5))
+    trades = simulate_buy(bars, PARAMS, sigma_override=SIGMA)
+    entry = trades[0]  # the only true entry
+    assert entry.filled is True
     assert entry.exit_reason == ExitReason.DAY_MAX
     assert entry.days_held == PARAMS.holding_max
+    # exit_price = close of day +24 = 99.5
+    assert entry.exit_price == pytest.approx(99.5, abs=0.01)
 
 
 def test_buy_signal_basic():
-    bars = make_bars(*([(100, 101, 100, 100.5)] * 5))
-    sig = buy_signal(bars, PARAMS, "TEST")
+    bars = make_bars((100, 101, 99, 100))
+    sig = buy_signal(bars, PARAMS, "TEST", sigma_override=SIGMA)
     assert sig.symbol == "TEST"
     assert sig.side == "buy"
-    assert sig.entry_limit < sig.prev_close
-    assert sig.tp_price > sig.prev_close
-    assert sig.stop_price < sig.entry_limit
-    assert sig.shares > 0
+    assert sig.prev_close == 100
+    assert sig.entry_limit == pytest.approx(99.0, abs=1e-6)
+    assert sig.tp_price == pytest.approx(100.5, abs=1e-6)
+    assert sig.stop_price == pytest.approx(96.0, abs=1e-6)
+    assert sig.shares == pytest.approx(100_000 / 99.0, abs=0.01)
 
 
-def test_buy_signal_needs_two_bars():
-    bars = make_bars((100, 101, 100, 100.5))
+def test_buy_signal_needs_two_bars_for_sigma():
+    """Without sigma_override, the signal cannot compute stdev from <2 bars."""
+    bars = make_bars((100, 101, 99, 100))  # 1 bar
     with pytest.raises(ValueError):
-        buy_signal(bars, PARAMS, "TEST")
+        buy_signal(bars, PARAMS, "TEST")  # no override -> must fail
