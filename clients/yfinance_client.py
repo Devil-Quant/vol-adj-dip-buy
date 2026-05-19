@@ -4,7 +4,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Iterable
 
 import pandas as pd
 import yfinance as yf
@@ -61,17 +60,6 @@ def fetch_ohlc(symbol: str, days: int, *, use_cache: bool = True) -> list[OhlcBa
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
         df.to_parquet(cache_file)
     return _df_to_bars(df)
-
-
-def fetch_many(symbols: Iterable[str], days: int) -> dict[str, list[OhlcBar]]:
-    """Fetch OHLC for a list of symbols. Returns symbol -> bars."""
-    out: dict[str, list[OhlcBar]] = {}
-    for sym in symbols:
-        try:
-            out[sym] = fetch_ohlc(sym, days)
-        except Exception as e:
-            print(f"[fetch] {sym} failed: {e}")
-    return out
 
 
 def _df_to_bars(df: pd.DataFrame) -> list[OhlcBar]:

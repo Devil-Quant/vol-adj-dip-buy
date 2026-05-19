@@ -10,6 +10,8 @@ from pathlib import Path
 # allow running as `python scripts/backtest_one.py ...` from project root
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import pandas as pd
+
 from backtest.engine import run_backtest
 from backtest.reporter import print_summary, trades_to_dataframe, summary_row
 from clients.yfinance_client import fetch_ohlc
@@ -53,7 +55,6 @@ def main() -> int:
     trades_df.to_csv(trades_csv, index=False)
     print(f"Wrote {len(trades_df)} trade rows to {trades_csv}")
 
-    import pandas as pd
     summary_csv = out_dir / f"{args.symbol}_{args.side}_summary.csv"
     pd.DataFrame([summary_row(result)]).to_csv(summary_csv, index=False)
     print(f"Wrote summary row to {summary_csv}")
