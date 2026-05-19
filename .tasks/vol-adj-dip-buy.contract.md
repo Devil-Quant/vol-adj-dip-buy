@@ -1,9 +1,10 @@
 ---
 task: vol-adj-dip-buy
-status: in_progress
+status: verified
 session_id: 95d775ad-3191-4acf-ad8a-087d5a3910c9
 started_at: 2026-05-19T00:00:00Z
 started_at_commit: 199165cb6bc21fca90de40085d79a697d04ff29e
+verified_at: 2026-05-19T00:00:00Z
 ---
 
 # Task: vol-adj-dip-buy

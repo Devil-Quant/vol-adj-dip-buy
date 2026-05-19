@@ -1,0 +1,47 @@
+{
+  "task": "vol-adj-dip-buy",
+  "session_id": "95d775ad-3191-4acf-ad8a-087d5a3910c9",
+  "verified_at": "2026-05-19T00:00:00Z",
+  "started_at_commit": "199165cb6bc21fca90de40085d79a697d04ff29e",
+  "verified_at_commit": "7b58d7141dc6948d26298a1275003435802420b4",
+  "modified_files": [
+    "backtest/__init__.py",
+    "backtest/engine.py",
+    "backtest/reporter.py",
+    "clients/__init__.py",
+    "clients/yfinance_client.py",
+    "config/__init__.py",
+    "config/settings.py",
+    "forward/__init__.py",
+    "forward/signals.py",
+    "models/__init__.py",
+    "models/trade.py",
+    "scripts/backtest_many.py",
+    "scripts/backtest_one.py",
+    "scripts/todays_signals.py",
+    "scripts/validate_against_excel.py",
+    "strategies/__init__.py",
+    "strategies/common.py",
+    "strategies/dip_buy.py",
+    "strategies/pop_short.py",
+    "tests/__init__.py",
+    "tests/conftest.py",
+    "tests/test_dip_buy.py",
+    "tests/test_pop_short.py"
+  ],
+  "iterations_used": 1,
+  "stages": {
+    "syntax": {"status": "pass", "files_checked": 23},
+    "code_quality": {
+      "status": "pass",
+      "hard_count": 0,
+      "soft_count_initial": 2,
+      "soft_count_after_cleanup": 0,
+      "notes": "Reviewer flagged unused fetch_many() in clients/yfinance_client.py and a deferred 'import pandas as pd' inside main() of scripts/backtest_one.py. Both fixed before artifact write."
+    },
+    "verify_checklists": {
+      "status": "skipped",
+      "reason": "No verify/ directory in this repo"
+    }
+  }
+}
