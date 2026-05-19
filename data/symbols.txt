@@ -1,0 +1,38 @@
+# Watchlist for the dip-buy / pop-short backtest.
+# One ticker per line. Lines starting with # are skipped.
+# Seeded from the spreadsheet's Sheet9 tab.
+NVDA
+AVGO
+TSLA
+MU
+AMD
+INTC
+ORCL
+LRCX
+AMAT
+ARM
+QCOM
+PANW
+SNDK
+STX
+CRWD
+ZS
+FLEX
+RKLB
+MRVL
+ALKS
+INTU
+ROKU
+APP
+NOW
+IQV
+DDOG
+CYTK
+IONQ
+LNTH
+GH
+FROG
+ACMR
+VIAV
+STNG
+AAON
