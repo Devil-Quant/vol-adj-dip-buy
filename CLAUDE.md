@@ -38,15 +38,34 @@ If my engine outputs differ materially (>$1k on $100k or wrong counts), the
 strategy implementation is wrong.
 
 ## Current state (2026-05-19)
-- Project skeleton created (config / clients / models / strategies / backtest /
-  forward / scripts / tests / data)
-- git initialised
-- Excel decoded; strategy formulas understood end-to-end
+- Full implementation complete and verified (`/done` artifact at
+  `.tasks/vol-adj-dip-buy.verified.json`)
+- 13 pytest tests passing
+- NVDA Buy validation: $22,434 vs Excel $26,819 — $4,385 drift, fully
+  explained by yfinance returning 74 bars vs Excel snapshot's 69
+- Forward-test script emits buy_limit / tp / stop / shares for 35 symbols
+- Reference episode: `D:\Claude Memory (Human)\episodes\exp-20260519-018.md`
 
-## Next steps
-- Implement strategy core, backtest engine, forward signal generator
-- Validate against NVDA reference number above
-- Wire up multi-symbol watchlist scripts
+## How to use
+```powershell
+# backtest one symbol
+python scripts/backtest_one.py NVDA --side buy --days 100
+# backtest a list, write screened-summary CSV
+python scripts/backtest_many.py data/symbols.txt --days 100
+# tomorrow's forward-test order parameters
+python scripts/todays_signals.py data/symbols.txt
+# sanity-check against the Excel NVDA Buy reference
+python scripts/validate_against_excel.py
+```
+
+## Next steps (when Jeff wants more)
+- Finviz screener integration (auto-build `symbols.txt` from a wedge-up /
+  wedge-down screen, per the spreadsheet's "Bots and Scripts" tab)
+- Broker integration (Alpaca? IBKR?) for order placement
+- Parameter sweep (grid over sigma_mult / limit_mult / stop_mult / lookback
+  by symbol, optimize the diff vs buy-and-hold)
+- Sector ETF correlation column (spreadsheet's "Lookup Table" maps each
+  ticker to SPDR_ETF; could feed into a hedge or filter)
 
 ## Task Completer overrides
 - Acceptance criterion for any strategy change: validation script
