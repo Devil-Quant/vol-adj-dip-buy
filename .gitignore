@@ -1,0 +1,90 @@
+# Canonical .gitignore template for D:/Claude/* projects.
+# Copy to each new project's root; add project-specific patterns at the bottom.
+# Maintained by D:/Claude/CLAUDE.md "Local Git Auto-Backup Convention".
+
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+venv/
+env/
+.venv/
+.python-version
+
+# === Node / Frontend ===
+node_modules/
+.next/
+dist/
+build/
+out/
+.cache/
+*.tsbuildinfo
+
+# === Secrets (defense-in-depth — repos are local-only but never trust future pushes) ===
+.env
+.env.*
+!.env.example
+!.env.template
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+service-account.json
+
+# === Logs ===
+*.log
+*.log.*
+logs/
+log/
+health_reports/
+
+# === Databases / state ===
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+
+# === Common runtime state files ===
+fired_*.jsonl
+processed_*.json
+.processed_*.json
+token_cache*.json
+active_positions*.json
+trade_history*.jsonl
+state.json
+status.json
+.claude_autocommit.lock
+
+# === Per-session Claude artifacts ===
+claude-sessions/
+.claude/
+
+# === Editor / OS ===
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Misc backups ===
+*.bak
+*.tmp
+*~
+
+# === Project-specific addenda below this line ===
+
+# === Project-specific ===
+data/cache/
+data/*.csv
+data/*.parquet
+*.xlsx
+!Strategy Relevant/*.xlsx
