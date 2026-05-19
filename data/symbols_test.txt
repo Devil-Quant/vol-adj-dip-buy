@@ -1,0 +1,6 @@
+# Small test list (5 symbols)
+NVDA
+AVGO
+TSLA
+MU
+AMD
