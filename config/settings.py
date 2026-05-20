@@ -1,5 +1,18 @@
-"""Strategy parameter defaults — mirror the Excel `Buy` and `Short` tabs."""
+"""Strategy parameter defaults (mirror the Excel `Buy`/`Short` tabs) plus
+IBKR connection settings for the data client."""
+import os
 from dataclasses import dataclass
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+# IBKR paper Gateway defaults: 127.0.0.1:4002. (TWS paper 7497, live Gateway
+# 4001, live TWS 7496.) Override via .env.
+IBKR_HOST = os.getenv("IBKR_HOST", "127.0.0.1")
+IBKR_PORT = int(os.getenv("IBKR_PORT", "4002"))
+IBKR_CLIENT_ID = int(os.getenv("IBKR_CLIENT_ID", "37"))
 
 
 @dataclass(frozen=True)

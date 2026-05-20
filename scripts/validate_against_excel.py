@@ -1,6 +1,8 @@
 """Sanity-check: run NVDA Buy backtest with spreadsheet defaults and print
-the four totals next to the Excel reference. Small drift expected because
-yfinance may return slightly different dates than the spreadsheet's snapshot."""
+the four totals next to the Excel reference. We anchor the IBKR pull to the
+spreadsheet's snapshot date (2026-05-15) and request 69 sessions so the
+window matches the Excel model as closely as possible. Residual drift comes
+from IBKR (TRADES, RTH) vs the spreadsheet's Google Finance source."""
 from __future__ import annotations
 
 import sys
@@ -10,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from backtest.engine import run_backtest
 from backtest.reporter import print_summary
-from clients.yfinance_client import fetch_ohlc
+from clients import fetch_ohlc
 from config.settings import DEFAULT_BUY
 
 
@@ -36,7 +38,9 @@ EXCEL_REFERENCE = {
 
 def main() -> int:
     sym = EXCEL_REFERENCE["symbol"]
-    bars = fetch_ohlc(sym, 100)
+    # Match the spreadsheet window: 69 sessions ending on the snapshot date.
+    bars = fetch_ohlc(sym, EXCEL_REFERENCE["trading_days"],
+                      end_date=EXCEL_REFERENCE["snapshot_date"])
     print(f"Fetched {len(bars)} bars for {sym} ({bars[0].d} -> {bars[-1].d})")
 
     result = run_backtest(sym, bars, DEFAULT_BUY)

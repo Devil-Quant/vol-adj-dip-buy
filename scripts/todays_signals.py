@@ -11,7 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from clients.yfinance_client import fetch_ohlc
+from clients import fetch_ohlc
 from config.settings import DEFAULT_BUY, DEFAULT_SHORT
 from forward.signals import generate_signal, signals_to_dataframe
 

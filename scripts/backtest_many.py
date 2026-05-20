@@ -15,7 +15,7 @@ import pandas as pd
 
 from backtest.engine import run_backtest
 from backtest.reporter import summary_row, SCREENED_SUMMARY_COLUMNS
-from clients.yfinance_client import fetch_ohlc
+from clients import fetch_ohlc
 from config.settings import DEFAULT_BUY, DEFAULT_SHORT
 
 

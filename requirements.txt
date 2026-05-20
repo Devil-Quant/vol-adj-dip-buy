@@ -1,5 +1,6 @@
-# Python 3.14 compatible — wheels exist as of 2026-05
-yfinance>=1.2.0
+# Python 3.14 compatible
+# Backtest data source: Interactive Brokers via ib_insync (NO yfinance — banned).
+ib_insync>=0.9.86
 pandas>=2.2.0
 numpy>=2.0.0
 python-dotenv>=1.0.0
