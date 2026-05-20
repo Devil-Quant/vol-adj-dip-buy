@@ -1,7 +1,11 @@
-"""Backtest runners. `run_backtest` = daily-bar approximation (matches the
-spreadsheet). `run_backtest_intraday` = granular 5-min resolution: daily bars
-give sigma + per-day entry/TP/stop levels, intraday bars resolve fills/exits
-with no look-ahead optimism and hold-to-resolution."""
+"""Backtest runners + shared intraday trade generation.
+
+`run_backtest` = daily-bar approximation (spreadsheet-equivalent).
+`run_backtest_intraday` = granular 5-min resolution; supports TRAILING sigma
+(per-entry sigma from the prior N daily bars) so walk-forward optimization has
+no sigma look-ahead. The `intraday_trades` / `trailing_sigma_by_day` /
+`build_day_start` helpers let the optimizer precompute sigma once and vary only
+the TP/SL grid."""
 from __future__ import annotations
 
 from typing import Sequence
@@ -12,6 +16,45 @@ from strategies.dip_buy import simulate_buy
 from strategies.pop_short import simulate_short
 from strategies.common import hl_spread_stdev, compute_levels
 from backtest.intraday_resolver import resolve_trade
+
+
+def build_day_start(intraday_bars: Sequence) -> dict:
+    """date -> first index in the chronological intraday stream."""
+    out: dict = {}
+    for idx, b in enumerate(intraday_bars):
+        out.setdefault(b.d, idx)
+    return out
+
+
+def trailing_sigma_by_day(daily_bars: Sequence, lookback: int) -> dict:
+    """Per-entry-day sigma from the prior `lookback` daily H-L spreads (no
+    look-ahead): day i (i>=lookback) -> stdev over daily_bars[i-lookback:i]."""
+    out: dict = {}
+    for i in range(lookback, len(daily_bars)):
+        out[daily_bars[i].d] = hl_spread_stdev(daily_bars[i - lookback:i])
+    return out
+
+
+def intraday_trades(daily_bars, intraday_bars, side, sigma_mult, limit_mult,
+                    stop_mult, order_size, *, sigma_by_day, day_start) -> list:
+    """Generate one Trade per signal day using precomputed sigma_by_day +
+    day_start (so the optimizer can reuse them across the TP/SL grid)."""
+    trades = []
+    for i in range(1, len(daily_bars)):
+        entry_date = daily_bars[i].d
+        if entry_date not in day_start:
+            continue
+        sig = sigma_by_day.get(entry_date)
+        if sig is None or sig <= 0:
+            continue
+        entry, tp, stop = compute_levels(side, daily_bars[i - 1].close, sig,
+                                         sigma_mult, limit_mult, stop_mult)
+        trades.append(resolve_trade(
+            entry_date=entry_date, side=side, entry_limit=entry, tp_price=tp,
+            stop_price=stop, shares=order_size / entry,
+            bars=intraday_bars[day_start[entry_date]:],
+        ))
+    return trades
 
 
 def _new_result(symbol: str, params: StrategyParams, n_days: int,
@@ -32,7 +75,7 @@ def _tally(result: BacktestResult, trades) -> None:
             result.intraday_pnl += t.pnl_usd
             result.intraday_count += 1
             continue
-        result.overnight_count += 1  # any filled non-intraday position
+        result.overnight_count += 1
         if t.exit_reason == ExitReason.STOP:
             result.stop_pnl += t.pnl_usd
             result.stop_count += 1
@@ -63,38 +106,26 @@ def run_backtest(symbol: str, bars: Sequence, params: StrategyParams) -> Backtes
 
 
 def run_backtest_intraday(symbol: str, daily_bars: Sequence, intraday_bars: Sequence,
-                          params: StrategyParams) -> BacktestResult:
-    """Granular backtest: daily bars set sigma + per-day levels; intraday bars
-    resolve each trade via `resolve_trade` (RTH entry, gap-aware exits, held to
-    resolution)."""
+                          params: StrategyParams, *, sigma_lookback=None) -> BacktestResult:
+    """Granular 5-min backtest. `sigma_lookback=None` -> whole-window sigma;
+    an int -> trailing sigma over that many prior daily bars (walk-forward safe)."""
     if len(daily_bars) < 3:
         raise ValueError(f"{symbol}: need >=3 daily bars, got {len(daily_bars)}")
     if not intraday_bars:
         raise ValueError(f"{symbol}: no intraday bars supplied")
 
-    sigma = hl_spread_stdev(daily_bars)
-    # date -> first index in the intraday stream (bars are chronological)
-    day_start: dict = {}
-    for idx, b in enumerate(intraday_bars):
-        day_start.setdefault(b.d, idx)
+    whole_sigma = hl_spread_stdev(daily_bars)
+    day_start = build_day_start(intraday_bars)
+    if sigma_lookback is not None:
+        sigma_by_day = trailing_sigma_by_day(daily_bars, sigma_lookback)
+    else:
+        sigma_by_day = {b.d: whole_sigma for b in daily_bars}
 
-    trades = []
-    for i in range(1, len(daily_bars)):
-        entry_date = daily_bars[i].d
-        if entry_date not in day_start:
-            continue  # no intraday coverage for this session
-        prev_close = daily_bars[i - 1].close
-        entry, tp, stop = compute_levels(
-            params.side, prev_close, sigma,
-            params.sigma_mult, params.limit_mult, params.stop_mult,
-        )
-        shares = params.order_size_usd / entry
-        slice_bars = intraday_bars[day_start[entry_date]:]
-        trades.append(resolve_trade(
-            entry_date=entry_date, side=params.side, entry_limit=entry,
-            tp_price=tp, stop_price=stop, shares=shares, bars=slice_bars,
-        ))
-
-    result = _new_result(symbol, params, len(daily_bars), sigma, daily_bars)
+    trades = intraday_trades(
+        daily_bars, intraday_bars, params.side, params.sigma_mult,
+        params.limit_mult, params.stop_mult, params.order_size_usd,
+        sigma_by_day=sigma_by_day, day_start=day_start,
+    )
+    result = _new_result(symbol, params, len(daily_bars), whole_sigma, daily_bars)
     _tally(result, trades)
     return result
