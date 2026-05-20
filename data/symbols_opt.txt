@@ -1,0 +1,12 @@
+# 10-name diverse subset of the Excel watchlist for TP/SL optimization.
+# Mega-cap trenders + volatile semis + software + speculative names.
+NVDA
+AVGO
+TSLA
+MU
+AMD
+INTC
+ORCL
+CRWD
+IONQ
+RKLB
