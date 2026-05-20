@@ -1,0 +1,36 @@
+{
+  "task": "intraday-resolution-backtest",
+  "session_id": "95d775ad-3191-4acf-ad8a-087d5a3910c9",
+  "verified_at": "2026-05-19T04:00:00Z",
+  "started_at_commit": "f649bae",
+  "verified_at_commit": "ac1348e8627a7207da0658a786dfdff12f83cd61",
+  "modified_files": [
+    "backtest/__init__.py",
+    "backtest/engine.py",
+    "backtest/intraday_resolver.py",
+    "backtest/reporter.py",
+    "clients/__init__.py",
+    "clients/ibkr_intraday.py",
+    "models/trade.py",
+    "scripts/backtest_one.py",
+    "strategies/__init__.py",
+    "strategies/common.py",
+    "tests/test_intraday_resolver.py"
+  ],
+  "iterations_used": 2,
+  "stages": {
+    "syntax": {"status": "pass", "files_checked": 11},
+    "code_quality": {
+      "status": "pass",
+      "hard_count": 0,
+      "soft_count": 0,
+      "notes": "iter1 flagged missing short-side test coverage (missing_acceptance); fixed by adding 5 short tests. iter2 review: 0 hard, 0 soft, 0 missing."
+    },
+    "verify_checklists": {"status": "skipped", "reason": "No verify/ directory in this repo"}
+  },
+  "validation": {
+    "tests": "pytest 28/28 green (13 daily + 15 intraday resolver)",
+    "headline_finding": "NVDA buy 69 sessions: daily-model +$19,942 (+19.9%) vs intraday-realistic +$4,364 (+4.4%); 6 of 12 same-day wins were sequencing artifacts; 2 stops gapped through. Strategy underperformed buy-and-hold (+21.5%) by 17.2% on this trending name.",
+    "live_gateway": "IBKR paper 4002; 13,248 5-min extended-hours bars fetched for NVDA window"
+  }
+}

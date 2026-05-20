@@ -1,9 +1,10 @@
 ---
 task: intraday-resolution-backtest
-status: in_progress
+status: verified
 session_id: 95d775ad-3191-4acf-ad8a-087d5a3910c9
 started_at: 2026-05-19T03:00:00Z
 started_at_commit: f649bae
+verified_at: 2026-05-19T04:00:00Z
 ---
 
 # Task: intraday-resolution-backtest
