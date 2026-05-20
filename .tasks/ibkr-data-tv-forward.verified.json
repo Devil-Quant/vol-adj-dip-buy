@@ -7,6 +7,7 @@
   "modified_files": [
     "clients/__init__.py",
     "clients/ibkr_client.py",
+    "clients/yfinance_client.py",
     "config/settings.py",
     "scripts/backtest_many.py",
     "scripts/backtest_one.py",
