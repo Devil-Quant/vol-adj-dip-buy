@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
-from pathlib import Path
 
 import pandas as pd
 from ib_insync import Stock
