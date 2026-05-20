@@ -122,8 +122,10 @@ def fetch_intraday(
                 low=float(b.low), close=float(b.close), is_rth=_is_rth(ts),
             )
         cursor = cursor - timedelta(days=chunk_days)
-    else:
-        reached_start = True  # loop ran to start_d normally
+    if cursor < start_d:
+        reached_start = True  # stepped past start_d = full coverage
+    # guard exhaustion (guard>=120, cursor still >= start_d) leaves
+    # reached_start False so the coverage guard below fires.
 
     out = sorted(
         (b for b in collected.values() if start_d <= b.ts.date() <= end_d),
