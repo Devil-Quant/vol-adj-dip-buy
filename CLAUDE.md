@@ -47,19 +47,22 @@ NVDA Buy with these defaults on the spreadsheet's 2026-05-15 snapshot:
 If my engine outputs differ materially (>$1k on $100k or wrong counts), the
 strategy implementation is wrong.
 
-## Current state (2026-05-19)
-- Full implementation complete and verified. Two contracts:
-  `.tasks/vol-adj-dip-buy.verified.json` (initial build) and
-  `.tasks/ibkr-data-tv-forward.verified.json` (data-source swap).
-- 13 pytest tests passing.
-- **Data: IBKR for backtest, TradingView/Pine for forward test. No yfinance.**
-- NVDA Buy validation (IBKR, 69 sessions ending 2026-05-15): IBKR bars match
-  the spreadsheet tic-for-tic; per-bucket diffs all < $5k; counts within 1
-  (12/12/7 vs Excel 13/13/6). VERDICT PASS. Raw total $19,942 vs $26,819 is
-  window-edge sensitive (IBKR window starts Feb 6 vs Excel's Feb 9) — not a
-  logic error.
-- Reference episodes: exp-20260519-018 (build), -027 (yfinance ban),
-  -028 (ib_insync 3.14 shim + IBKR duration semantics).
+## Current state (2026-05-20)
+- Four /done-verified contracts: vol-adj-dip-buy (build), ibkr-data-tv-forward
+  (data swap), intraday-resolution-backtest (5-min realism), optimize-tp-sl
+  (optimizer + OOS/walk-forward/Monte-Carlo). 38 pytest tests passing.
+- **Data: IBKR (paper 4002) for backtest. yfinance BANNED. Forward exec = Jeff's
+  MCP server (details still pending).**
+- **Realism finding (NVDA buy, 69d):** daily model +$19,942 (19.9%) vs
+  intraday-realistic +$4,364 (4.4%) — ~78% cut; 6 of 12 same-day wins were
+  sequencing artifacts; stops gap through. Daily ~matches Excel tic-for-tic.
+- **IN PROGRESS — TP/SL optimization:** pipeline built + verified; 10-name
+  subset 2yr 5-min data was FETCHING when the session paused (3/10 cached).
+  RESUME: re-run `python scripts/fetch_history.py data/symbols_opt.txt --years 2`
+  (cached symbols skip), then `python scripts/optimize.py data/symbols_opt.txt
+  --years 2`. Optimizes TP/SL per side, reward<=3x risk, with OOS + walk-forward
+  + Monte-Carlo verdict. NO RESULTS YET.
+- Reference episodes: exp-20260519-018/027/028/033/034/035, exp-20260520-001.
 
 ## How to use
 ```powershell
@@ -73,16 +76,25 @@ python scripts/todays_signals.py data/symbols.txt
 python scripts/validate_against_excel.py
 ```
 
-## Next steps (when Jeff wants more)
-- Finviz screener integration (auto-build `symbols.txt` from a wedge-up /
-  wedge-down screen, per the spreadsheet's "Bots and Scripts" tab)
-- IBKR order placement (paper first) — `ib_insync` can place the bracket the
-  Python signal computes; same gateway already connected
-- TradingView alert -> webhook -> broker wiring for the Pine forward test
-- Parameter sweep (grid over sigma_mult / limit_mult / stop_mult / lookback
-  by symbol, optimize the diff vs buy-and-hold)
-- Sector ETF correlation column (spreadsheet's "Lookup Table" maps each
-  ticker to SPDR_ETF; could feed into a hedge or filter)
+## Next steps
+1. **Finish the optimization run** (data fetch was interrupted at 3/10) —
+   re-fetch then `scripts/optimize.py`; report per-side TP/SL + OOS/WF/MC.
+2. **Expand to the full Excel watchlist** (data/symbols.txt) once the subset
+   result looks robust.
+3. **MCP executor** (forward/executor.py) — BLOCKED on Jeff providing: MCP
+   server launch command, broker, and order tools (place / bracket-OCO /
+   cancel / positions / balance). Forward test = real orders via MCP.
+4. Finviz screener integration (auto-build the watchlist from wedge-up/-down).
+5. Sector ETF correlation filter (Lookup Table maps each ticker -> SPDR_ETF).
+
+## Operational notes
+- IB Gateway logs out daily; needs re-login + API enabled on 4002 each session.
+  My data scripts connect-then-disconnect, so the Gateway showing "no client"
+  between runs is normal.
+- mem0 (Docker: Qdrant 6333 + Ollama 11434) must be up for semantic memory;
+  reconnect a dropped mem0 MCP via `/mcp`.
+- Optimization: reward<=3x risk = (sigma_mult+limit_mult) <= 3*stop_mult.
+  Trailing sigma (SIGMA_LOOKBACK=100) avoids walk-forward look-ahead.
 
 ## Task Completer overrides
 - Acceptance criterion for any strategy change: validation script
