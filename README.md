@@ -17,33 +17,54 @@ spread `sigma`:
 
 Order size is `$100,000` notional per fill.
 
+## Data sources
+- **Backtest** = Interactive Brokers (`ib_insync` against the paper Gateway,
+  `127.0.0.1:4002`). **yfinance is banned.** `--days N` = N *trading sessions*.
+- **Forward test** = TradingView. Load `tradingview/vol_adj_dip_buy.pine` on a
+  daily chart (see below).
+
 ## Layout
 
 ```
-config/        defaults, parameter dataclass
-clients/       yfinance OHLC fetcher
+config/        defaults, parameter dataclass + IBKR connection settings
+clients/       IBKR OHLC fetcher (ib_insync)
 models/        Trade, BacktestResult, Signal
 strategies/    dip_buy.py, pop_short.py (pure functions of OHLC)
 backtest/      engine + reporter
-forward/       today's signal generator
+forward/       today's signal generator (Python cross-check of the Pine script)
 scripts/       backtest_one, backtest_many, todays_signals, validate_against_excel
+tradingview/   vol_adj_dip_buy.pine (Pine v6 forward-test strategy)
 tests/         pytest fixtures + unit tests for each exit path
 data/          cached OHLC + run outputs
 ```
 
 ## Quickstart
 
+Prereqs: IB Gateway (paper) running and logged in, API enabled, port 4002.
+
 ```powershell
 python -m pip install -r requirements.txt
-# backtest one symbol over 100 days
+# backtest one symbol over the last 100 sessions
 python scripts/backtest_one.py NVDA --side buy --days 100
 # backtest a list (one symbol per line) with both sides
 python scripts/backtest_many.py data/symbols.txt --days 100
-# get today's forward-test signals
+# today's forward-test order parameters (Python cross-check)
 python scripts/todays_signals.py data/symbols.txt
-# sanity-check against the spreadsheet NVDA Buy row
+# sanity-check the engine against the spreadsheet NVDA Buy row
 python scripts/validate_against_excel.py
 ```
+
+## Forward test on TradingView
+1. Open TradingView, add a daily (1D) chart for the symbol.
+2. Pine Editor -> paste `tradingview/vol_adj_dip_buy.pine` -> Add to chart.
+3. Pick **Mode** (Dip-Buy / Pop-Short) and tune the sigma multipliers in
+   the strategy settings. The three plotted lines are entry / take-profit /
+   stop.
+4. The Strategy Tester tab shows the on-chart backtest; create an alert on
+   the strategy (or on the "entry touched" conditions) for live signals.
+- Caveat: the TV strategy holds **one position at a time**; the Python
+  backtest models overlapping positions. Use Python for portfolio research,
+  TradingView for live execution/alerts.
 
 ## Parameter mapping (Excel -> code)
 

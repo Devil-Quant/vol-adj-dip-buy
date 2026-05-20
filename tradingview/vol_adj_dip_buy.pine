@@ -1,0 +1,92 @@
+//@version=6
+// =============================================================================
+// Volatility-Adjusted Dip-Buy / Pop-Short  --  FORWARD-TEST strategy
+// Port of the Excel "Buy"/"Short" tabs (see project CLAUDE.md). Run this on a
+// DAILY chart. It places a volatility-scaled limit entry off the PRIOR close,
+// brackets it with a take-profit and a 3-sigma stop, and force-exits after a
+// max holding period.
+//
+// sigma = stdev of the daily (high - low) spread over `lookback` bars.
+// Pine's ta.stdev is POPULATION stdev; Excel/Python use SAMPLE stdev, so we
+// rescale by sqrt(n/(n-1)) to match the backtester exactly.
+//
+// Per day i with prior close C = close[1]:
+//   Dip-Buy (long):  entry = C - sigmaMult*sigma
+//                    tp    = C + limitMult*sigma
+//                    stop  = entry - stopMult*sigma
+//   Pop-Short:       entry = C + sigmaMult*sigma
+//                    tp    = entry - limitMult*sigma
+//                    stop  = entry + stopMult*sigma
+//
+// NOTE — difference from the Python backtest: the Python engine treats every
+// day independently and can hold many overlapping positions at once. A single
+// TradingView strategy holds ONE position at a time (pyramiding = 0). That is
+// the realistic live constraint; expect the TV equity curve to differ from the
+// portfolio-style Python backtest. Use Python for research, this for live.
+// =============================================================================
+
+strategy(
+     title              = "Vol-Adj Dip-Buy / Pop-Short",
+     overlay            = true,
+     pyramiding         = 0,
+     calc_on_every_tick = false,
+     default_qty_type   = strategy.cash,
+     default_qty_value  = 100000,
+     initial_capital    = 100000,
+     commission_type    = strategy.commission.percent,
+     commission_value   = 0.0)
+
+// ---- Inputs -----------------------------------------------------------------
+mode      = input.string("Dip-Buy (Long)", "Mode", options = ["Dip-Buy (Long)", "Pop-Short (Short)"])
+lookback  = input.int(100, "Lookback bars for sigma", minval = 5)
+sigmaMult = input.float(1.0,  "Entry sigma mult",       step = 0.25, minval = 0.0)
+limitMult = input.float(0.5,  "Take-profit sigma mult", step = 0.25, minval = 0.0,
+                         tooltip = "Excel: 0.5 for Buy, 0.75 for Short")
+stopMult  = input.float(3.0,  "Stop sigma mult",        step = 0.25, minval = 0.0)
+holdMax   = input.int(24, "Max holding bars (force exit)", minval = 1)
+orderSize = input.float(100000, "Order size ($)", minval = 0.0)
+
+isLong = mode == "Dip-Buy (Long)"
+
+// ---- Sigma (sample stdev of daily H-L spread) -------------------------------
+hlSpread   = high - low
+popStdev   = ta.stdev(hlSpread, lookback)
+sampleAdj  = math.sqrt(lookback / math.max(lookback - 1, 1))
+sigma      = popStdev * sampleAdj
+ready      = not na(sigma) and bar_index >= lookback
+
+// ---- Levels off the prior close ---------------------------------------------
+priorClose = close[1]
+entryPrice = isLong ? priorClose - sigmaMult * sigma : priorClose + sigmaMult * sigma
+tpPrice    = isLong ? priorClose + limitMult * sigma : entryPrice - limitMult * sigma
+stopPrice  = isLong ? entryPrice - stopMult * sigma  : entryPrice + stopMult * sigma
+qty        = entryPrice > 0 ? math.floor(orderSize / entryPrice) : na
+
+// ---- Orders -----------------------------------------------------------------
+// While flat, (re)place today's limit entry at the freshly computed level.
+// Once filled, bracket with TP + stop. strategy.exit infers direction.
+flat = strategy.position_size == 0
+if ready and flat and not na(qty)
+    if isLong
+        strategy.entry("L", strategy.long, qty = qty, limit = entryPrice)
+        strategy.exit("L-x", "L", limit = tpPrice, stop = stopPrice)
+    else
+        strategy.entry("S", strategy.short, qty = qty, limit = entryPrice)
+        strategy.exit("S-x", "S", limit = tpPrice, stop = stopPrice)
+
+// Force exit after holdMax bars in the trade (Excel day-+24 fallback).
+barsInTrade = strategy.opentrades > 0 ? bar_index - strategy.opentrades.entry_bar_index(0) : 0
+if strategy.opentrades > 0 and barsInTrade >= holdMax
+    strategy.close_all(comment = "time exit")
+
+// ---- Plots ------------------------------------------------------------------
+plot(ready ? entryPrice : na, "Entry", color = color.new(color.aqua, 0),  style = plot.style_linebr)
+plot(ready ? tpPrice    : na, "Take-profit", color = color.new(color.green, 0), style = plot.style_linebr)
+plot(ready ? stopPrice  : na, "Stop", color = color.new(color.red, 0),  style = plot.style_linebr)
+
+// ---- Alerts -----------------------------------------------------------------
+// Fire when today's range reaches the entry level (place the bracket order).
+longTouch  = ready and isLong  and low  <= entryPrice
+shortTouch = ready and not isLong and high >= entryPrice
+alertcondition(longTouch,  "Dip-Buy entry touched",  "{{ticker}} dip-buy limit {{close}} reached")
+alertcondition(shortTouch, "Pop-Short entry touched", "{{ticker}} pop-short limit {{close}} reached")
