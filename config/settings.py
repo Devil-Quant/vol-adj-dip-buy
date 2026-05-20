@@ -35,6 +35,14 @@ class StrategyParams:
             raise ValueError("holding_max must be >= holding_window")
 
 
+# Optimization grid (TP and SL multipliers, in sigma units). Entry sigma_mult
+# stays fixed at 1.0; only TP & SL are searched.
+TP_GRID = (0.5, 0.75, 1.0, 1.5, 2.0, 2.5)
+SL_GRID = (0.5, 1.0, 1.5, 2.0, 2.5, 3.0)
+MAX_RR = 3.0            # reward <= 3x risk: (sigma_mult + limit_mult) <= 3 * stop_mult
+SIGMA_LOOKBACK = 100    # trailing daily bars for per-entry sigma (walk-forward safe)
+
+
 DEFAULT_BUY = StrategyParams(
     side="buy",
     sigma_mult=1.0,
