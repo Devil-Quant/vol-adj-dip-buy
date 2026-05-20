@@ -1,11 +1,12 @@
 {
   "task": "optimize-tp-sl",
   "session_id": "95d775ad-3191-4acf-ad8a-087d5a3910c9",
-  "verified_at": "2026-05-20T01:00:00Z",
+  "verified_at": "2026-05-20T01:30:00Z",
   "started_at_commit": "31fe4a5bc989dbcc820bb03aa762cd491b39638e",
-  "verified_at_commit": "c2bd018c9672a4fb751a3eff458055eaa74a7c69",
+  "verified_at_commit": "91db4321c7fd87df3b1dcb6347a822f7f0ff1baa",
   "modified_files": [
     "backtest/engine.py",
+    "backtest/intraday_resolver.py",
     "backtest/optimizer.py",
     "backtest/validation.py",
     "clients/ibkr_client.py",
@@ -16,16 +17,16 @@
     "tests/test_optimizer.py",
     "tests/test_validation.py"
   ],
-  "iterations_used": 1,
+  "iterations_used": 2,
   "stages": {
-    "syntax": {"status": "pass", "files_checked": 10},
+    "syntax": {"status": "pass"},
     "code_quality": {
       "status": "pass",
       "hard_count": 0,
-      "soft_count": 3,
-      "notes": "Reviewer confirmed NO look-ahead leakage in trailing-sigma, OOS split, or walk-forward (critical for the anti-overfit guarantee). 3 soft issues fixed in-loop: hardcoded ORDER/SIGMA_MULT now reference config.DEFAULT_BUY; fetch_history.py log path made script-relative; misleading drawdown-percentile comment clarified."
+      "soft_count": 0,
+      "notes": "iter1: pipeline code reviewed, NO look-ahead leakage confirmed; 3 soft issues fixed (config constants, log path, comment). iter2: index-based resolver perf refactor (slice -> start_idx; avoids copying the 96k-bar list per combo/entry) reviewed as behaviorally equivalent; stale docstring fixed. intraday_resolver.py added to coverage since the refactor touched it."
     },
     "verify_checklists": {"status": "skipped", "reason": "No verify/ directory in this repo"}
   },
-  "notes": "Pipeline CODE verified (38/38 tests). The live optimization RUN over the 10-name 2yr dataset is pending the background data fetch; running optimize.py writes only data/*.json (no source change) so this artifact stays valid."
+  "notes": "Pipeline CODE verified (38/38 tests). Live optimization RUN pending the background data fetch; optimize.py writes only data/*.json (no source change) so this artifact stays valid."
 }
