@@ -86,7 +86,10 @@ def monte_carlo(pnls: list[float], n: int = 2000, seed: int = 42) -> dict | None
         "p95_total": _pct(totals, 0.95),
         "prob_profit": sum(1 for t in totals if t > 0) / n,
         "median_max_drawdown": _pct(dds, 0.5),
-        "p95_max_drawdown": _pct(dds, 0.05),  # 5th pct = deepest 5% drawdown
+        # VaR-95 drawdown: 95% of resamples have a SHALLOWER drawdown than this
+        # (dds is ascending = most-negative first, so the 5th-position percentile
+        # is the deep-tail bound).
+        "p95_max_drawdown": _pct(dds, 0.05),
     }
 
 

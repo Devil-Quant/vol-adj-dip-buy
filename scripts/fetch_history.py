@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from clients import fetch_ohlc, fetch_intraday
 
-LOG = Path("data") / "fetch_history.log"
+LOG = Path(__file__).resolve().parent.parent / "data" / "fetch_history.log"
 
 
 def log(msg: str) -> None:

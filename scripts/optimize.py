@@ -14,13 +14,13 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from clients import fetch_ohlc, fetch_intraday
-from config.settings import TP_GRID, SL_GRID, MAX_RR, SIGMA_LOOKBACK
+from config.settings import TP_GRID, SL_GRID, MAX_RR, SIGMA_LOOKBACK, DEFAULT_BUY
 from backtest.engine import build_day_start, trailing_sigma_by_day
 from backtest.optimizer import run_grid, best_combo
 from backtest.validation import oos_evaluate, walk_forward, monte_carlo
 
-ORDER = 100_000.0
-SIGMA_MULT = 1.0
+ORDER = DEFAULT_BUY.order_size_usd
+SIGMA_MULT = DEFAULT_BUY.sigma_mult   # entry stays fixed; only TP & SL are searched
 
 
 def load_symbols(path: Path) -> list[str]:
