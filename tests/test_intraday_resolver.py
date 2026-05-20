@@ -141,3 +141,58 @@ def test_tp_touched_before_entry_is_not_a_win():
     assert t.filled is True
     assert t.exit_reason != ExitReason.INTRADAY_TP     # the early TP was not credited
     assert t.exit_reason == ExitReason.OPEN
+
+
+# --- Short side (mirror): entry=101, tp(cover)=100.25, stop=104 --------------
+SENTRY, STP, SSTOP = 101.0, 100.25, 104.0
+
+
+def short(bars):
+    return resolve_trade(entry_date=D0, side="short", entry_limit=SENTRY,
+                         tp_price=STP, stop_price=SSTOP, shares=SH, bars=bars)
+
+
+def test_short_no_fill():
+    bars = [rth(D0, 9, 30, 100.5, 100.9, 100.2, 100.6)]  # high 100.9 < entry 101
+    t = short(bars)
+    assert t.filled is False and t.exit_reason == ExitReason.NONE
+
+
+def test_short_intraday_cover():
+    bars = [rth(D0, 9, 30, 100.5, 101.5, 100.4, 101.0),  # fill (high>=101), low>tp
+            rth(D0, 9, 35, 101.0, 101.2, 100.0, 100.3)]  # low 100.0<=tp 100.25 -> cover
+    t = short(bars)
+    assert t.exit_reason == ExitReason.INTRADAY_TP and t.days_held == 0
+    assert abs(t.exit_price - STP) < 1e-9
+    assert abs(t.pnl_usd - (SENTRY - STP) * SH) < 1e-6   # short profit
+
+
+def test_short_overnight_stop():
+    d1 = D0 + timedelta(days=1)
+    bars = [rth(D0, 9, 30, 100.5, 101.5, 100.4, 101.0),
+            rth(D0, 9, 35, 101.0, 101.2, 100.5, 101.0)]  # no cover/stop day 1
+    bars += [rth(d1, 9, 30, 102.0, 104.5, 101.5, 104.0)]  # high>=stop, opens below -> fill at stop
+    t = short(bars)
+    assert t.exit_reason == ExitReason.STOP and t.gapped is False
+    assert abs(t.exit_price - SSTOP) < 1e-9
+    assert t.pnl_usd < 0
+
+
+def test_short_gap_through_stop():
+    """Gap UP through the short's stop -> fill at the (worse, higher) open."""
+    d1 = D0 + timedelta(days=1)
+    bars = [rth(D0, 9, 30, 100.5, 101.5, 100.4, 101.0),
+            rth(D0, 9, 35, 101.0, 101.2, 100.5, 101.0)]
+    bars += [ext(d1, 4, 0, 105.0, 105.5, 104.5, 105.0)]  # opens 105 >= stop 104 -> gap
+    t = short(bars)
+    assert t.exit_reason == ExitReason.STOP and t.gapped is True
+    assert abs(t.exit_price - 105.0) < 1e-9
+    assert abs(t.pnl_usd - (SENTRY - 105.0) * SH) < 1e-6
+
+
+def test_short_same_bar_tie_goes_to_stop():
+    bars = [rth(D0, 9, 30, 100.5, 101.5, 100.4, 101.0),  # fill
+            rth(D0, 9, 35, 102.0, 104.5, 100.0, 101.0)]  # both stop(104.5>=104) and tp(100<=100.25)
+    t = short(bars)
+    assert t.exit_reason == ExitReason.STOP             # adverse wins
+    assert abs(t.exit_price - SSTOP) < 1e-9
