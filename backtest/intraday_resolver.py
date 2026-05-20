@@ -26,8 +26,11 @@ def resolve_trade(
     stop_price: float,
     shares: float,
     bars: Sequence,
+    start_idx: int = 0,
 ) -> Trade:
-    """`bars` are intraday bars from `entry_date` 04:00 onward."""
+    """Resolve the trade against `bars`, scanning from `start_idx` (the first
+    index of `entry_date`). Index-based (no slicing) so the optimizer can pass
+    the full intraday list cheaply across thousands of (combo x entry) calls."""
     if side not in ("buy", "short"):
         raise ValueError(f"side must be buy/short, got {side!r}")
 
@@ -37,22 +40,24 @@ def resolve_trade(
         tp_price=tp_price, stop_price=stop_price,
     )
 
+    n = len(bars)
     # --- 1. Entry fill: RTH bars on entry_date only --------------------------
     fill_i = None
-    for i, b in enumerate(bars):
-        if b.d != entry_date:
-            break  # entry order is good only for its own session
-        if not b.is_rth:
-            continue
-        hit = (b.low <= entry_limit) if side == "buy" else (b.high >= entry_limit)
-        if hit:
-            fill_i = i
-            break
+    i = start_idx
+    while i < n and bars[i].d == entry_date:
+        b = bars[i]
+        if b.is_rth:
+            hit = (b.low <= entry_limit) if side == "buy" else (b.high >= entry_limit)
+            if hit:
+                fill_i = i
+                break
+        i += 1
     if fill_i is None:
         return no_fill
 
     # --- 2. Scan forward (RTH + extended) for the first of TP / stop ---------
-    for b in bars[fill_i + 1:]:
+    for j in range(fill_i + 1, n):
+        b = bars[j]
         if side == "buy":
             stop_hit = b.low <= stop_price
             tp_hit = b.high >= tp_price

@@ -52,7 +52,7 @@ def intraday_trades(daily_bars, intraday_bars, side, sigma_mult, limit_mult,
         trades.append(resolve_trade(
             entry_date=entry_date, side=side, entry_limit=entry, tp_price=tp,
             stop_price=stop, shares=order_size / entry,
-            bars=intraday_bars[day_start[entry_date]:],
+            bars=intraday_bars, start_idx=day_start[entry_date],
         ))
     return trades
 
