@@ -7,7 +7,8 @@ TP and stop, the adverse one (stop) is assumed first; a stop that gaps (the
 bar opens beyond it, e.g. after the 20:00-04:00 dead window) fills at the gap
 open, not the stop price. Positions are held to resolution — no time cap.
 
-Bars passed in must be chronological and START at the entry day's first bar.
+Bars must be chronological; `start_idx` identifies the first bar of
+`entry_date` within the full list (no slicing — keeps the optimizer fast).
 """
 from __future__ import annotations
 
