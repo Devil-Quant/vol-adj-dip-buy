@@ -97,10 +97,12 @@ def fetch_ohlc(symbol: str, days: int, *, end_date=None, use_cache: bool = True)
     ib = _get_ib()
     contract = Stock(symbol, "SMART", "USD")
     ib.qualifyContracts(contract)
+    # IBKR rejects daily durations > 365 expressed in "D" — must use years.
+    duration = f"{days} D" if days <= 365 else f"{days // 252 + 2} Y"
     bars = ib.reqHistoricalData(
         contract,
         endDateTime=_end_datetime(end_date),
-        durationStr=f"{days} D",
+        durationStr=duration,
         barSizeSetting="1 day",
         whatToShow="TRADES",
         useRTH=True,
@@ -108,6 +110,7 @@ def fetch_ohlc(symbol: str, days: int, *, end_date=None, use_cache: bool = True)
     )
     if not bars:
         raise RuntimeError(f"IBKR returned no data for {symbol}")
+    bars = bars[-days:]  # trim to the requested number of sessions
 
     df = pd.DataFrame(
         [{"date": b.date, "Open": b.open, "High": b.high, "Low": b.low, "Close": b.close}

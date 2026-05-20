@@ -52,7 +52,7 @@ def fetch_intraday(
     bar_size: str = "5 mins",
     use_rth: bool = False,
     use_cache: bool = True,
-    chunk_days: int = 20,
+    chunk_days: int = 60,
 ) -> list[IntradayBar]:
     """Fetch intraday bars for `symbol` covering the calendar span [start, end].
 
