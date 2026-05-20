@@ -9,9 +9,10 @@ from typing import Optional
 
 class ExitReason(str, Enum):
     INTRADAY_TP = "intraday_tp"      # same-day take-profit fill
-    OVERNIGHT_TP = "overnight_tp"    # next-N-day take-profit fill
-    STOP = "stop"                    # stop-loss fill within window
-    DAY_MAX = "day_max"              # forced exit at close on holding_max day
+    OVERNIGHT_TP = "overnight_tp"    # next-day take-profit fill
+    STOP = "stop"                    # stop-loss fill
+    DAY_MAX = "day_max"              # (daily engine only) forced exit at holding_max
+    OPEN = "open"                    # still open at end of data (held to resolution)
     NONE = "none"                    # entry never filled
 
 
@@ -32,6 +33,8 @@ class Trade:
     shares: Optional[float] = None
     pnl_usd: Optional[float] = None  # realized PnL on the order size
     days_held: Optional[int] = None  # 0 for intraday, N for overnight
+    still_open: bool = False         # True if held to data-end without resolving
+    gapped: bool = False             # True if a stop filled worse than its level (gap)
 
 
 @dataclass
@@ -50,17 +53,24 @@ class BacktestResult:
     overnight_tp_pnl: float = 0.0
     day_max_pnl: float = 0.0
 
+    open_pnl: float = 0.0            # unrealized mark-to-market of still-open positions
+
     intraday_count: int = 0
     overnight_count: int = 0         # all positions still open at end of day
     stop_count: int = 0
     overnight_tp_count: int = 0
     day_max_count: int = 0
+    open_count: int = 0              # held to data-end without resolving
 
     buy_and_hold_pct: Optional[float] = None  # for the diff column
 
     @property
-    def total_pnl(self) -> float:
+    def realized_pnl(self) -> float:
         return self.intraday_pnl + self.stop_pnl + self.overnight_tp_pnl + self.day_max_pnl
+
+    @property
+    def total_pnl(self) -> float:
+        return self.realized_pnl + self.open_pnl
 
     @property
     def strategy_pct(self) -> float:

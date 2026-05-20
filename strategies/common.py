@@ -18,6 +18,23 @@ class OhlcView:
     close: float
 
 
+def compute_levels(side: str, prev_close: float, sigma: float,
+                   sigma_mult: float, limit_mult: float, stop_mult: float):
+    """Entry / take-profit / stop off the prior close. Single source of the
+    level formula (buy = dip below, short = pop above). Returns (entry, tp, stop)."""
+    if side == "buy":
+        entry = prev_close - sigma_mult * sigma
+        tp = prev_close + limit_mult * sigma
+        stop = entry - stop_mult * sigma
+    elif side == "short":
+        entry = prev_close + sigma_mult * sigma
+        tp = entry - limit_mult * sigma
+        stop = entry + stop_mult * sigma
+    else:
+        raise ValueError(f"side must be buy/short, got {side!r}")
+    return entry, tp, stop
+
+
 def hl_spread_stdev(bars: Sequence) -> float:
     """Sample stdev (ddof=1) of daily High-minus-Low — mirrors Excel STDEV
     applied to column L (`H/L Spread`) on the Buy / Short tabs.

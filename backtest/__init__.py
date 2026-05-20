@@ -1,4 +1,4 @@
-from backtest.engine import run_backtest
+from backtest.engine import run_backtest, run_backtest_intraday
 from backtest.reporter import (
     trades_to_dataframe,
     summary_row,
@@ -8,6 +8,7 @@ from backtest.reporter import (
 
 __all__ = [
     "run_backtest",
+    "run_backtest_intraday",
     "trades_to_dataframe",
     "summary_row",
     "print_summary",

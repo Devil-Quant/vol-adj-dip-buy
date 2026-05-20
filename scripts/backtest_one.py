@@ -12,9 +12,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import pandas as pd
 
-from backtest.engine import run_backtest
+from backtest.engine import run_backtest, run_backtest_intraday
 from backtest.reporter import print_summary, trades_to_dataframe, summary_row
-from clients import fetch_ohlc
+from clients import fetch_ohlc, fetch_intraday
 from config.settings import DEFAULT_BUY, DEFAULT_SHORT, StrategyParams
 
 
@@ -27,6 +27,9 @@ def main() -> int:
     ap.add_argument("--limit-mult", type=float, default=None)
     ap.add_argument("--stop-mult", type=float, default=None)
     ap.add_argument("--order-size", type=float, default=None)
+    ap.add_argument("--intraday", action="store_true",
+                    help="resolve fills/exits on 5-min extended-hours bars (granular, realistic)")
+    ap.add_argument("--end-date", default=None, help="anchor window end YYYY-MM-DD (default now)")
     ap.add_argument("--out-dir", default="data")
     args = ap.parse_args()
 
@@ -42,10 +45,16 @@ def main() -> int:
         order_size_usd=args.order_size if args.order_size is not None else base.order_size_usd,
     )
 
-    bars = fetch_ohlc(args.symbol, args.days)
-    print(f"Fetched {len(bars)} bars for {args.symbol} (last bar: {bars[-1].d})")
+    bars = fetch_ohlc(args.symbol, args.days, end_date=args.end_date)
+    print(f"Fetched {len(bars)} daily bars for {args.symbol} ({bars[0].d} -> {bars[-1].d})")
 
-    result = run_backtest(args.symbol, bars, params)
+    if args.intraday:
+        intraday = fetch_intraday(args.symbol, bars[0].d, bars[-1].d,
+                                  bar_size="5 mins", use_rth=False)
+        print(f"Fetched {len(intraday)} 5-min bars (extended hours) for resolution")
+        result = run_backtest_intraday(args.symbol, bars, intraday, params)
+    else:
+        result = run_backtest(args.symbol, bars, params)
     print_summary(result)
 
     out_dir = Path(args.out_dir)

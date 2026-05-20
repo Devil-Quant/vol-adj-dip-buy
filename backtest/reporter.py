@@ -47,6 +47,8 @@ def trades_to_dataframe(trades: Iterable[Trade]) -> pd.DataFrame:
             "shares": t.shares,
             "days_held": t.days_held,
             "pnl_usd": t.pnl_usd,
+            "still_open": t.still_open,
+            "gapped": t.gapped,
         })
     return pd.DataFrame(rows)
 
@@ -83,7 +85,14 @@ def print_summary(result: BacktestResult) -> None:
     print(f"  intraday:     {result.intraday_count:>3} fills, ${result.intraday_pnl:>+12,.2f}")
     print(f"  overnight TP: {result.overnight_tp_count:>3} fills, ${result.overnight_tp_pnl:>+12,.2f}")
     print(f"  stop-out:     {result.stop_count:>3} fills, ${result.stop_pnl:>+12,.2f}")
-    print(f"  day-max:      {result.day_max_count:>3} fills, ${result.day_max_pnl:>+12,.2f}")
+    if result.day_max_count:
+        print(f"  day-max:      {result.day_max_count:>3} fills, ${result.day_max_pnl:>+12,.2f}")
+    n_gap = sum(1 for t in result.trades if getattr(t, "gapped", False))
+    if result.stop_count:
+        print(f"    (of which gapped through the stop: {n_gap})")
+    print(f"  realized:     {result.intraday_count + result.stop_count + result.overnight_tp_count + result.day_max_count:>3} fills, ${result.realized_pnl:>+12,.2f}")
+    if result.open_count:
+        print(f"  still OPEN:   {result.open_count:>3} pos,   ${result.open_pnl:>+12,.2f}  (unrealized, marked at last close)")
     print(f"  TOTAL:        {result.intraday_count + result.overnight_count:>3} fills, ${result.total_pnl:>+12,.2f}")
     print(f"  strategy %:   {result.strategy_pct:+.4%}")
     if result.buy_and_hold_pct is not None:
