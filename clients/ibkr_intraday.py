@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
+from time import sleep
 
 import pandas as pd
 from ib_insync import Stock
@@ -42,6 +43,25 @@ def _to_date(v) -> date:
     if isinstance(v, datetime):
         return v.date()
     return v
+
+
+def _req_chunk(ib, contract, end_str, dur, bar_size, use_rth, attempts=4):
+    """Request one historical chunk, retrying on empty/timeout (pacing under
+    parallel load). Returns [] only after all attempts fail — so a transient
+    timeout never silently truncates the series."""
+    for k in range(attempts):
+        try:
+            bars = ib.reqHistoricalData(
+                contract, endDateTime=end_str, durationStr=dur,
+                barSizeSetting=bar_size, whatToShow="TRADES", useRTH=use_rth,
+                formatDate=1, timeout=180,
+            )
+        except Exception:
+            bars = None
+        if bars:
+            return bars
+        sleep(3 * (k + 1))  # backoff: 3, 6, 9s
+    return []
 
 
 def fetch_intraday(
@@ -84,19 +104,16 @@ def fetch_intraday(
     collected: dict[str, IntradayBar] = {}
     cursor = end_d
     guard = 0
+    reached_start = False
     while cursor >= start_d and guard < 120:
         guard += 1
         end_str = f"{cursor.strftime('%Y%m%d')} 23:59:59"
-        bars = ib.reqHistoricalData(
-            contract,
-            endDateTime=end_str,
-            durationStr=f"{chunk_days} D",
-            barSizeSetting=bar_size,
-            whatToShow="TRADES",
-            useRTH=use_rth,
-            formatDate=1,
-        )
+        bars = _req_chunk(ib, contract, end_str, f"{chunk_days} D", bar_size, use_rth)
         if not bars:
+            # Empty AFTER retries -> treat as genuine start of available history
+            # (e.g. pre-IPO). A transient timeout would have been recovered by
+            # the retries, so we don't silently truncate on a network hiccup.
+            reached_start = True
             break
         for b in bars:
             ts = b.date if isinstance(b.date, datetime) else datetime.combine(b.date, time.min)
@@ -105,6 +122,8 @@ def fetch_intraday(
                 low=float(b.low), close=float(b.close), is_rth=_is_rth(ts),
             )
         cursor = cursor - timedelta(days=chunk_days)
+    else:
+        reached_start = True  # loop ran to start_d normally
 
     out = sorted(
         (b for b in collected.values() if start_d <= b.ts.date() <= end_d),
@@ -112,6 +131,15 @@ def fetch_intraday(
     )
     if not out:
         raise RuntimeError(f"IBKR returned no intraday data for {symbol} {start_d}..{end_d}")
+
+    # Guard against caching a TRUNCATED pull (e.g. repeated timeouts under load):
+    # if coverage doesn't reach near start_d and we didn't cleanly hit end-of-data,
+    # raise instead of writing a partial cache the optimizer would trust.
+    earliest = out[0].ts.date()
+    if not reached_start and earliest > start_d + timedelta(days=45):
+        raise RuntimeError(
+            f"{symbol}: incomplete intraday pull (only back to {earliest}, wanted {start_d}); "
+            "not caching partial data")
 
     if use_cache:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
