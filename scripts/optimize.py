@@ -121,9 +121,11 @@ def main() -> int:
     ap.add_argument("symbols_file")
     ap.add_argument("--years", type=float, default=2.0)
     ap.add_argument("--daily-sessions", type=int, default=620)
-    ap.add_argument("--engine", choices=("intraday", "daily"), default="intraday",
-                    help="intraday=realistic 5-min fills; daily=Excel-faithful (whole-window "
-                         "sigma, exact-stop fills, same-day-both=win, drop-unresolved)")
+    ap.add_argument("--engine", choices=("intraday", "daily", "daily-trailing"),
+                    default="intraday",
+                    help="intraday=realistic 5-min fills (trailing sigma); "
+                         "daily=Excel-faithful w/ WHOLE-window sigma (look-ahead); "
+                         "daily-trailing=Excel fills but rolling ~Excel-lookback sigma (honest)")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
@@ -131,16 +133,23 @@ def main() -> int:
     end = date.today()
     start = end - timedelta(days=int(args.years * 365))
     print(f"Loading {len(symbols)} symbols, {start}..{end}, engine={args.engine} ...")
-    if args.engine == "daily":
+    excel_lookback = 69  # Excel B3=100 calendar days ~= 69 trading days
+    if args.engine in ("daily", "daily-trailing"):
+        trailing = args.engine == "daily-trailing"
         data = {}
         for sym in symbols:
             try:
-                daily = [b for b in fetch_ohlc(sym, args.daily_sessions) if b.d >= start]
+                full = fetch_ohlc(sym, args.daily_sessions)
             except Exception as e:
                 print(f"[skip] {sym}: {e}")
                 continue
-            data[sym] = {"daily": daily}
-            print(f"  loaded {sym}: {len(daily)} daily bars")
+            if trailing:
+                # keep full history for the pre-window sigma buffer
+                data[sym] = {"daily": full,
+                             "sigma_by_day": trailing_sigma_by_day(full, excel_lookback)}
+            else:
+                data[sym] = {"daily": [b for b in full if b.d >= start]}
+            print(f"  loaded {sym}: {len(data[sym]['daily'])} daily bars")
     else:
         data = build_symbols_data(symbols, args.daily_sessions, start, end, SIGMA_LOOKBACK)
     if not data:
@@ -148,9 +157,13 @@ def main() -> int:
         return 1
 
     report = {"engine": args.engine}
-    grid_fn = run_grid_daily if args.engine == "daily" else run_grid
     for side in ("buy", "short"):
-        grid = grid_fn(data, side, TP_GRID, SL_GRID, SIGMA_MULT, ORDER, MAX_RR)
+        if args.engine == "intraday":
+            grid = run_grid(data, side, TP_GRID, SL_GRID, SIGMA_MULT, ORDER, MAX_RR)
+        else:
+            grid = run_grid_daily(data, side, TP_GRID, SL_GRID, SIGMA_MULT, ORDER, MAX_RR,
+                                  trailing=(args.engine == "daily-trailing"),
+                                  start=start if args.engine == "daily-trailing" else None)
         res = optimize_side(grid)
         print_side(side, res)
         report[side] = _jsonable(res)

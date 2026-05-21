@@ -34,32 +34,36 @@ from strategies.common import hl_spread_stdev
 
 def simulate_buy(
     bars: Sequence, params: StrategyParams, *, sigma_override: float | None = None,
+    sigma_by_day: dict | None = None,
 ) -> list[Trade]:
     """Walk the bar series and produce a Trade per day that had a valid
     signal. Bars must be in chronological order. `bars` length should
     be >= params.lookback_days; the engine slices accordingly upstream.
 
-    `sigma_override` is for tests that want to inject a known sigma so
-    fixtures don't have to predict the H/L stdev of the whole bar list."""
+    `sigma_override` injects a known sigma (tests). `sigma_by_day` maps each
+    entry date -> sigma for a ROLLING/trailing sigma (the Excel-faithful
+    lookback); when given, days without a sigma are skipped. Default (neither
+    set) uses one whole-window sigma."""
     if params.side != "buy":
         raise ValueError("simulate_buy needs side='buy'")
     if len(bars) < 2:
         return []
 
-    sigma = sigma_override if sigma_override is not None else hl_spread_stdev(bars)
-    sigma_off = params.sigma_mult * sigma
-    limit_off = params.limit_mult * sigma
-    stop_off = params.stop_mult * sigma
+    whole = (sigma_override if sigma_override is not None
+             else (None if sigma_by_day is not None else hl_spread_stdev(bars)))
 
     trades: list[Trade] = []
     # i starts at 1 because we need prior close (bars[i-1]) for entry
     for i in range(1, len(bars)):
         prev_close = bars[i - 1].close
         today = bars[i]
+        sig = sigma_by_day.get(today.d) if sigma_by_day is not None else whole
+        if sig is None or sig <= 0:
+            continue  # insufficient trailing history for this day
 
-        entry_limit = prev_close - sigma_off
-        tp_price = prev_close + limit_off
-        stop_price = entry_limit - stop_off
+        entry_limit = prev_close - params.sigma_mult * sig
+        tp_price = prev_close + params.limit_mult * sig
+        stop_price = entry_limit - params.stop_mult * sig
 
         in_range = today.low < entry_limit < today.high
         filled = in_range and today.low < entry_limit

@@ -34,25 +34,30 @@ from strategies.common import hl_spread_stdev
 
 def simulate_short(
     bars: Sequence, params: StrategyParams, *, sigma_override: float | None = None,
+    sigma_by_day: dict | None = None,
 ) -> list[Trade]:
+    """`sigma_by_day` (entry date -> sigma) gives a rolling/trailing sigma
+    (Excel-faithful lookback); days without a sigma are skipped. Default uses
+    one whole-window sigma. See simulate_buy."""
     if params.side != "short":
         raise ValueError("simulate_short needs side='short'")
     if len(bars) < 2:
         return []
 
-    sigma = sigma_override if sigma_override is not None else hl_spread_stdev(bars)
-    sigma_off = params.sigma_mult * sigma
-    limit_off = params.limit_mult * sigma
-    stop_off = params.stop_mult * sigma
+    whole = (sigma_override if sigma_override is not None
+             else (None if sigma_by_day is not None else hl_spread_stdev(bars)))
 
     trades: list[Trade] = []
     for i in range(1, len(bars)):
         prev_close = bars[i - 1].close
         today = bars[i]
+        sig = sigma_by_day.get(today.d) if sigma_by_day is not None else whole
+        if sig is None or sig <= 0:
+            continue  # insufficient trailing history for this day
 
-        entry_limit = prev_close + sigma_off
-        tp_price = entry_limit - limit_off
-        stop_price = entry_limit + stop_off
+        entry_limit = prev_close + params.sigma_mult * sig
+        tp_price = entry_limit - params.limit_mult * sig
+        stop_price = entry_limit + params.stop_mult * sig
 
         in_range = today.low < entry_limit < today.high
         filled = in_range and entry_limit < today.high

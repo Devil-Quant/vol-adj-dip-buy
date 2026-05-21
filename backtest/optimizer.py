@@ -70,11 +70,15 @@ def run_grid(symbols_data: dict, side: str, limit_grid, stop_grid,
 
 
 def combo_trades_daily(symbols_data: dict, side: str, sigma_mult: float,
-                       limit_mult: float, stop_mult: float, order_size: float) -> list[TradeRec]:
-    """Excel-FAITHFUL daily engine: whole-window sigma, exact-stop fills,
-    same-day-both-in-range = win, and positions unresolved within the 20-day
-    window are DROPPED (marked still_open so they contribute $0, mirroring the
-    spreadsheet's dead AG column)."""
+                       limit_mult: float, stop_mult: float, order_size: float,
+                       *, trailing: bool = False, start=None) -> list[TradeRec]:
+    """Excel-FAITHFUL daily engine: exact-stop fills, same-day-both-in-range =
+    win, positions unresolved within the 20-day window are DROPPED ($0, mirrors
+    the spreadsheet's dead AG column). `trailing=False` uses one whole-window
+    sigma; `trailing=True` uses each symbol's rolling/trailing sigma_by_day
+    (Excel's ~lookback window, no whole-period look-ahead). `start` filters
+    trades to entry_date >= start (align the window when trailing needs a
+    pre-window sigma buffer)."""
     params = StrategyParams(
         side=side, sigma_mult=sigma_mult, limit_mult=limit_mult, stop_mult=stop_mult,
         lookback_days=100, holding_window=20, holding_max=24, order_size_usd=order_size,
@@ -82,22 +86,28 @@ def combo_trades_daily(symbols_data: dict, side: str, sigma_mult: float,
     sim = simulate_buy if side == "buy" else simulate_short
     recs: list[TradeRec] = []
     for sym, sd in symbols_data.items():
-        for t in sim(sd["daily"], params):
-            if t.filled and t.pnl_usd is not None:
-                dropped = t.exit_reason == ExitReason.DAY_MAX  # Excel drops these
-                recs.append(TradeRec(sym, t.entry_date, t.pnl_usd, t.pnl_usd > 0, dropped))
+        sby = sd.get("sigma_by_day") if trailing else None
+        for t in sim(sd["daily"], params, sigma_by_day=sby):
+            if not (t.filled and t.pnl_usd is not None):
+                continue
+            if start is not None and t.entry_date < start:
+                continue
+            dropped = t.exit_reason == ExitReason.DAY_MAX  # Excel drops these
+            recs.append(TradeRec(sym, t.entry_date, t.pnl_usd, t.pnl_usd > 0, dropped))
     return recs
 
 
 def run_grid_daily(symbols_data: dict, side: str, limit_grid, stop_grid,
-                   sigma_mult: float, order_size: float, max_rr: float) -> dict:
+                   sigma_mult: float, order_size: float, max_rr: float,
+                   *, trailing: bool = False, start=None) -> dict:
     """Same as run_grid but using the Excel-faithful daily engine."""
     out: dict = {}
     for lm in limit_grid:
         for sm in stop_grid:
             if not rr_ok(sigma_mult, lm, sm, max_rr):
                 continue
-            out[(lm, sm)] = combo_trades_daily(symbols_data, side, sigma_mult, lm, sm, order_size)
+            out[(lm, sm)] = combo_trades_daily(symbols_data, side, sigma_mult, lm, sm,
+                                               order_size, trailing=trailing, start=start)
     return out
 
 
