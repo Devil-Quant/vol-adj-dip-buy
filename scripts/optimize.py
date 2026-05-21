@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from clients import fetch_ohlc, fetch_intraday
 from config.settings import TP_GRID, SL_GRID, MAX_RR, SIGMA_LOOKBACK, DEFAULT_BUY
 from backtest.engine import build_day_start, trailing_sigma_by_day
-from backtest.optimizer import run_grid, best_combo
+from backtest.optimizer import run_grid, run_grid_daily, best_combo
 from backtest.validation import oos_evaluate, walk_forward, monte_carlo
 
 ORDER = DEFAULT_BUY.order_size_usd
@@ -121,26 +121,42 @@ def main() -> int:
     ap.add_argument("symbols_file")
     ap.add_argument("--years", type=float, default=2.0)
     ap.add_argument("--daily-sessions", type=int, default=620)
+    ap.add_argument("--engine", choices=("intraday", "daily"), default="intraday",
+                    help="intraday=realistic 5-min fills; daily=Excel-faithful (whole-window "
+                         "sigma, exact-stop fills, same-day-both=win, drop-unresolved)")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
     symbols = load_symbols(Path(args.symbols_file))
     end = date.today()
     start = end - timedelta(days=int(args.years * 365))
-    print(f"Loading {len(symbols)} symbols, 5-min {start}..{end} ...")
-    data = build_symbols_data(symbols, args.daily_sessions, start, end, SIGMA_LOOKBACK)
+    print(f"Loading {len(symbols)} symbols, {start}..{end}, engine={args.engine} ...")
+    if args.engine == "daily":
+        data = {}
+        for sym in symbols:
+            try:
+                daily = [b for b in fetch_ohlc(sym, args.daily_sessions) if b.d >= start]
+            except Exception as e:
+                print(f"[skip] {sym}: {e}")
+                continue
+            data[sym] = {"daily": daily}
+            print(f"  loaded {sym}: {len(daily)} daily bars")
+    else:
+        data = build_symbols_data(symbols, args.daily_sessions, start, end, SIGMA_LOOKBACK)
     if not data:
         print("No data loaded.", file=sys.stderr)
         return 1
 
-    report = {}
+    report = {"engine": args.engine}
+    grid_fn = run_grid_daily if args.engine == "daily" else run_grid
     for side in ("buy", "short"):
-        grid = run_grid(data, side, TP_GRID, SL_GRID, SIGMA_MULT, ORDER, MAX_RR)
+        grid = grid_fn(data, side, TP_GRID, SL_GRID, SIGMA_MULT, ORDER, MAX_RR)
         res = optimize_side(grid)
         print_side(side, res)
         report[side] = _jsonable(res)
 
-    out = Path(args.out) if args.out else Path("data") / f"optimization_{end.isoformat()}.json"
+    suffix = "" if args.engine == "intraday" else f"_{args.engine}"
+    out = Path(args.out) if args.out else Path("data") / f"optimization_{end.isoformat()}{suffix}.json"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, default=str))
     print(f"\nWrote {out}")

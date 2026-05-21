@@ -10,6 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+from config.settings import StrategyParams
+from models.trade import ExitReason
+from strategies.dip_buy import simulate_buy
+from strategies.pop_short import simulate_short
 from backtest.engine import intraday_trades
 
 
@@ -62,6 +66,38 @@ def run_grid(symbols_data: dict, side: str, limit_grid, stop_grid,
             if not rr_ok(sigma_mult, lm, sm, max_rr):
                 continue
             out[(lm, sm)] = combo_trades(symbols_data, side, sigma_mult, lm, sm, order_size)
+    return out
+
+
+def combo_trades_daily(symbols_data: dict, side: str, sigma_mult: float,
+                       limit_mult: float, stop_mult: float, order_size: float) -> list[TradeRec]:
+    """Excel-FAITHFUL daily engine: whole-window sigma, exact-stop fills,
+    same-day-both-in-range = win, and positions unresolved within the 20-day
+    window are DROPPED (marked still_open so they contribute $0, mirroring the
+    spreadsheet's dead AG column)."""
+    params = StrategyParams(
+        side=side, sigma_mult=sigma_mult, limit_mult=limit_mult, stop_mult=stop_mult,
+        lookback_days=100, holding_window=20, holding_max=24, order_size_usd=order_size,
+    )
+    sim = simulate_buy if side == "buy" else simulate_short
+    recs: list[TradeRec] = []
+    for sym, sd in symbols_data.items():
+        for t in sim(sd["daily"], params):
+            if t.filled and t.pnl_usd is not None:
+                dropped = t.exit_reason == ExitReason.DAY_MAX  # Excel drops these
+                recs.append(TradeRec(sym, t.entry_date, t.pnl_usd, t.pnl_usd > 0, dropped))
+    return recs
+
+
+def run_grid_daily(symbols_data: dict, side: str, limit_grid, stop_grid,
+                   sigma_mult: float, order_size: float, max_rr: float) -> dict:
+    """Same as run_grid but using the Excel-faithful daily engine."""
+    out: dict = {}
+    for lm in limit_grid:
+        for sm in stop_grid:
+            if not rr_ok(sigma_mult, lm, sm, max_rr):
+                continue
+            out[(lm, sm)] = combo_trades_daily(symbols_data, side, sigma_mult, lm, sm, order_size)
     return out
 
 
