@@ -196,3 +196,41 @@ def test_short_same_bar_tie_goes_to_stop():
     t = short(bars)
     assert t.exit_reason == ExitReason.STOP             # adverse wins
     assert abs(t.exit_price - SSTOP) < 1e-9
+
+
+# --- OCO bidirectional fade: prev_close=100, sigma=1, sigma_mult=1 -----------
+# long entry 99, short entry 101; tp_mult=1 -> both tp at 100; stop_mult=0.5
+def fade(bars):
+    return resolve_oco_fade(entry_date=D0, prev_close=100.0, sigma=1.0, sigma_mult=1.0,
+                            tp_mult=1.0, stop_mult=0.5, order_size=100_000.0,
+                            bars=bars, start_idx=0)
+
+
+def test_fade_long_first():
+    bars = [rth(D0, 9, 30, 100, 100.2, 98.8, 99.5),    # low<=99 (long), high<101 -> LONG
+            rth(D0, 9, 35, 99.5, 100.5, 99.0, 100.0)]  # high>=100 tp
+    t = fade(bars)
+    assert t.side == "buy" and t.filled
+    assert t.exit_reason == ExitReason.INTRADAY_TP
+    assert t.pnl_usd > 0
+
+
+def test_fade_short_first():
+    bars = [rth(D0, 9, 30, 100, 101.5, 100.0, 101.0),  # high>=101 (short), low>99 -> SHORT
+            rth(D0, 9, 35, 101.0, 101.2, 99.5, 100.0)]  # low<=100 tp (cover)
+    t = fade(bars)
+    assert t.side == "short" and t.filled
+    assert t.exit_reason == ExitReason.INTRADAY_TP
+    assert t.pnl_usd > 0
+
+
+def test_fade_ambiguous_same_bar_no_fill():
+    bars = [rth(D0, 9, 30, 100, 101.5, 98.5, 100)]     # spans both 99 and 101 -> ambiguous
+    t = fade(bars)
+    assert t.filled is False and t.exit_reason == ExitReason.NONE
+
+
+def test_fade_no_touch_no_fill():
+    bars = [rth(D0, 9, 30, 100, 100.5, 99.5, 100)]     # never reaches 99 or 101
+    t = fade(bars)
+    assert t.filled is False
