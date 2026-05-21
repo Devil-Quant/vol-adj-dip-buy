@@ -1,9 +1,9 @@
 {
   "task": "optimize-tp-sl",
   "session_id": "95d775ad-3191-4acf-ad8a-087d5a3910c9",
-  "verified_at": "2026-05-20T02:00:00Z",
+  "verified_at": "2026-05-20T03:00:00Z",
   "started_at_commit": "31fe4a5bc989dbcc820bb03aa762cd491b39638e",
-  "verified_at_commit": "7da661be007412f772ba8ce95abbffe855263caf",
+  "verified_at_commit": "324a60f82140cc1c77e516822908a3980ddcfbf5",
   "modified_files": [
     "backtest/engine.py",
     "backtest/intraday_resolver.py",
@@ -14,19 +14,21 @@
     "config/settings.py",
     "scripts/fetch_history.py",
     "scripts/optimize.py",
+    "strategies/dip_buy.py",
+    "strategies/pop_short.py",
     "tests/test_optimizer.py",
     "tests/test_validation.py"
   ],
-  "iterations_used": 3,
+  "iterations_used": 4,
   "stages": {
     "syntax": {"status": "pass"},
     "code_quality": {
       "status": "pass",
       "hard_count": 0,
       "soft_count": 0,
-      "notes": "iter1: pipeline reviewed, NO look-ahead leakage; 3 soft fixed. iter2: index-based resolver perf refactor verified equivalent. iter3: fetch_intraday resilience fix (parallel fetch exposed that `if not bars: break` silently cached truncated data on a timeout - MU got 3mo instead of 2yr). Added _req_chunk retry (timeout=180, backoff) + coverage guard that raises rather than caching a partial pull. Stage B flagged a while-else guard-exhaustion hole; fixed with explicit `if cursor < start_d`; re-reviewed clean."
+      "notes": "iter1-3: pipeline + index refactor + fetch-resilience (see history). iter4: added optional per-day sigma (sigma_by_day) to simulate_buy/simulate_short for an Excel-faithful ROLLING-sigma daily run, plus run_grid_daily(trailing=) and optimize.py --engine daily-trailing. Reviewer confirmed the DEFAULT whole-window path is byte-for-byte equivalent (Excel tic-for-tic replica preserved). 1 soft (sd.get->sd[] fail-loud) fixed. 38 tests pass."
     },
     "verify_checklists": {"status": "skipped", "reason": "No verify/ directory in this repo"}
   },
-  "notes": "Pipeline CODE verified (38/38 tests). Live optimization RUN pending the 2-way-parallel data fetch (in progress). optimize.py writes only data/*.json (no source change) so this artifact stays valid."
+  "result_summary": "3-way comparison isolates the driver: Excel-fills + whole-window sigma = ROBUST (MC 99.9/100%); Excel-fills + honest rolling sigma = STILL ROBUST (MC 100/100%); realistic intraday fills = WEAK (MC 21/0%). Conclusion: the strategy's edge is an artifact of optimistic FILL accounting (same-day-both=win, exact-stop), NOT sigma method and NOT a coding error. Results: data/optimization_2026-05-20*.json."
 }
