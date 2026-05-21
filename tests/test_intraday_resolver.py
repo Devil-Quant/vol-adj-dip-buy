@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 from models.trade import ExitReason
-from backtest.intraday_resolver import resolve_trade
+from backtest.intraday_resolver import resolve_trade, resolve_oco_fade
 
 
 @dataclass
