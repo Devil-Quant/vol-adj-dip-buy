@@ -56,41 +56,88 @@ def resolve_trade(
     if fill_i is None:
         return no_fill
 
-    # --- 2. Scan forward (RTH + extended) for the first of TP / stop ---------
-    for j in range(fill_i + 1, n):
+    return _resolve_after_fill(entry_date, side, entry_limit, tp_price,
+                               stop_price, shares, bars, fill_i)
+
+
+def resolve_oco_fade(
+    *, entry_date: date, prev_close: float, sigma: float, sigma_mult: float,
+    tp_mult: float, stop_mult: float, order_size: float,
+    bars: Sequence, start_idx: int = 0,
+) -> Trade:
+    """Bidirectional OCO fade: place BOTH a long limit at C-sigma_mult*sigma and a
+    short limit at C+sigma_mult*sigma at the open; whichever the price reaches
+    FIRST (RTH) opens, the other cancels. Then resolve that side with tp_mult /
+    stop_mult sigma offsets. A single bar that spans both levels is ambiguous
+    (can't tell which came first) -> treated as no-fill for the day."""
+    long_entry = prev_close - sigma_mult * sigma
+    short_entry = prev_close + sigma_mult * sigma
+    no_fill = Trade(entry_date=entry_date, side="buy", entry_limit=long_entry,
+                    filled=False, intraday_tp=False, exit_reason=ExitReason.NONE)
+
+    n = len(bars)
+    fill_i, side = None, None
+    i = start_idx
+    while i < n and bars[i].d == entry_date:
+        b = bars[i]
+        if b.is_rth:
+            long_hit = b.low <= long_entry
+            short_hit = b.high >= short_entry
+            if long_hit and short_hit:
+                return no_fill  # ambiguous which extreme came first
+            if long_hit:
+                side, fill_i = "buy", i
+                break
+            if short_hit:
+                side, fill_i = "short", i
+                break
+        i += 1
+    if fill_i is None:
+        return no_fill
+
+    if side == "buy":
+        entry = long_entry
+        tp_price = entry + tp_mult * sigma
+        stop_price = entry - stop_mult * sigma
+    else:
+        entry = short_entry
+        tp_price = entry - tp_mult * sigma
+        stop_price = entry + stop_mult * sigma
+    return _resolve_after_fill(entry_date, side, entry, tp_price, stop_price,
+                               order_size / entry, bars, fill_i)
+
+
+def _resolve_after_fill(entry_date, side, entry_limit, tp_price, stop_price,
+                        shares, bars, fill_i) -> Trade:
+    """Walk forward from the fill bar for the first of TP / stop (RTH + ext);
+    gap-aware stop; hold to resolution; OPEN at data end."""
+    for j in range(fill_i + 1, len(bars)):
         b = bars[j]
         if side == "buy":
-            stop_hit = b.low <= stop_price
-            tp_hit = b.high >= tp_price
-            if stop_hit:
+            if b.low <= stop_price:
                 gapped = b.open <= stop_price
-                exit_px = b.open if gapped else stop_price
                 return _exit(entry_date, side, entry_limit, tp_price, stop_price,
-                             shares, ExitReason.STOP, exit_px, b, gapped)
-            if tp_hit:
+                             shares, ExitReason.STOP, b.open if gapped else stop_price, b, gapped)
+            if b.high >= tp_price:
                 return _exit(entry_date, side, entry_limit, tp_price, stop_price,
                              shares, _tp_reason(entry_date, b), tp_price, b, False)
-        else:  # short
-            stop_hit = b.high >= stop_price
-            tp_hit = b.low <= tp_price
-            if stop_hit:
+        else:
+            if b.high >= stop_price:
                 gapped = b.open >= stop_price
-                exit_px = b.open if gapped else stop_price
                 return _exit(entry_date, side, entry_limit, tp_price, stop_price,
-                             shares, ExitReason.STOP, exit_px, b, gapped)
-            if tp_hit:
+                             shares, ExitReason.STOP, b.open if gapped else stop_price, b, gapped)
+            if b.low <= tp_price:
                 return _exit(entry_date, side, entry_limit, tp_price, stop_price,
                              shares, _tp_reason(entry_date, b), tp_price, b, False)
 
-    # --- 3. Never resolved -> still open, mark at last close ------------------
     last = bars[-1]
-    pnl = _pnl(side, entry_limit, last.close, shares)
     return Trade(
         entry_date=entry_date, side=side, entry_limit=entry_limit,
         filled=True, intraday_tp=False, exit_reason=ExitReason.OPEN,
         tp_price=tp_price, stop_price=stop_price,
         exit_price=last.close, exit_date=last.d, shares=shares,
-        pnl_usd=pnl, days_held=_days(entry_date, last.d), still_open=True,
+        pnl_usd=_pnl(side, entry_limit, last.close, shares),
+        days_held=_days(entry_date, last.d), still_open=True,
     )
 
 
