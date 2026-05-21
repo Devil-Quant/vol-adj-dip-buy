@@ -36,12 +36,15 @@ def main() -> int:
     ap.add_argument("--years", type=float, default=2.0)
     ap.add_argument("--daily-sessions", type=int, default=620,
                     help="daily sessions to pull (2yr + sigma-lookback buffer)")
+    ap.add_argument("--bar-size", default="5 mins", help="intraday bar size, e.g. '1 min'")
+    ap.add_argument("--chunk-days", type=int, default=60,
+                    help="calendar-day chunk per request (use ~14 for 1-min)")
     args = ap.parse_args()
 
     symbols = load_symbols(Path(args.symbols_file))
     end = date.today()
     start = end - timedelta(days=int(args.years * 365))
-    log(f"=== fetch start: {len(symbols)} symbols, 5-min {start}..{end}, "
+    log(f"=== fetch start: {len(symbols)} symbols, {args.bar_size} {start}..{end}, "
         f"daily {args.daily_sessions} sessions ===")
 
     for i, sym in enumerate(symbols, 1):
@@ -52,10 +55,12 @@ def main() -> int:
             log(f"[{i}/{len(symbols)}] {sym} daily FAILED: {e}")
             continue
         try:
-            intr = fetch_intraday(sym, start, end, bar_size="5 mins", use_rth=False)
-            log(f"[{i}/{len(symbols)}] {sym} 5-min: {len(intr)} bars ({intr[0].d}..{intr[-1].d})")
+            intr = fetch_intraday(sym, start, end, bar_size=args.bar_size,
+                                  use_rth=False, chunk_days=args.chunk_days)
+            log(f"[{i}/{len(symbols)}] {sym} {args.bar_size}: {len(intr)} bars "
+                f"({intr[0].d}..{intr[-1].d})")
         except Exception as e:
-            log(f"[{i}/{len(symbols)}] {sym} 5-min FAILED: {e}")
+            log(f"[{i}/{len(symbols)}] {sym} {args.bar_size} FAILED: {e}")
 
     log("=== fetch complete ===")
     return 0
