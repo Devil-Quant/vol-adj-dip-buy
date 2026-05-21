@@ -14,7 +14,7 @@ from config.settings import StrategyParams
 from models.trade import ExitReason
 from strategies.dip_buy import simulate_buy
 from strategies.pop_short import simulate_short
-from backtest.engine import intraday_trades
+from backtest.engine import intraday_trades, oco_fade_trades
 
 
 @dataclass
@@ -109,6 +109,20 @@ def run_grid_daily(symbols_data: dict, side: str, limit_grid, stop_grid,
             out[(lm, sm)] = combo_trades_daily(symbols_data, side, sigma_mult, lm, sm,
                                                order_size, trailing=trailing, start=start)
     return out
+
+
+def combo_trades_fade(symbols_data: dict, sigma_mult: float, tp_mult: float,
+                      stop_mult: float, order_size: float) -> list[TradeRec]:
+    """Bidirectional OCO fade across symbols (uses each symbol's trailing
+    sigma_by_day + day_start). Returns TradeRecs (entry_date-tagged)."""
+    recs: list[TradeRec] = []
+    for sym, sd in symbols_data.items():
+        for t in oco_fade_trades(sd["daily"], sd["intraday"], sigma_mult, tp_mult,
+                                 stop_mult, order_size,
+                                 sigma_by_day=sd["sigma_by_day"], day_start=sd["day_start"]):
+            if t.filled and t.pnl_usd is not None:
+                recs.append(TradeRec(sym, t.entry_date, t.pnl_usd, t.pnl_usd > 0, t.still_open))
+    return recs
 
 
 def window_stats(limit_mult: float, stop_mult: float, recs: list[TradeRec],

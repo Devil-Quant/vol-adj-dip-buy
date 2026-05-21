@@ -15,7 +15,7 @@ from models.trade import BacktestResult, ExitReason
 from strategies.dip_buy import simulate_buy
 from strategies.pop_short import simulate_short
 from strategies.common import hl_spread_stdev, compute_levels
-from backtest.intraday_resolver import resolve_trade
+from backtest.intraday_resolver import resolve_trade, resolve_oco_fade
 
 
 def build_day_start(intraday_bars: Sequence) -> dict:
@@ -53,6 +53,27 @@ def intraday_trades(daily_bars, intraday_bars, side, sigma_mult, limit_mult,
             entry_date=entry_date, side=side, entry_limit=entry, tp_price=tp,
             stop_price=stop, shares=order_size / entry,
             bars=intraday_bars, start_idx=day_start[entry_date],
+        ))
+    return trades
+
+
+def oco_fade_trades(daily_bars, intraday_bars, sigma_mult, tp_mult, stop_mult,
+                    order_size, *, sigma_by_day, day_start) -> list:
+    """Bidirectional OCO fade per signal day: long at C-sigma_mult*sigma OR short
+    at C+sigma_mult*sigma, whichever the price reaches first, resolved with
+    tp_mult/stop_mult. Uses precomputed sigma_by_day + day_start."""
+    trades = []
+    for i in range(1, len(daily_bars)):
+        entry_date = daily_bars[i].d
+        if entry_date not in day_start:
+            continue
+        sig = sigma_by_day.get(entry_date)
+        if sig is None or sig <= 0:
+            continue
+        trades.append(resolve_oco_fade(
+            entry_date=entry_date, prev_close=daily_bars[i - 1].close, sigma=sig,
+            sigma_mult=sigma_mult, tp_mult=tp_mult, stop_mult=stop_mult,
+            order_size=order_size, bars=intraday_bars, start_idx=day_start[entry_date],
         ))
     return trades
 
