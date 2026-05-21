@@ -86,7 +86,7 @@ def combo_trades_daily(symbols_data: dict, side: str, sigma_mult: float,
     sim = simulate_buy if side == "buy" else simulate_short
     recs: list[TradeRec] = []
     for sym, sd in symbols_data.items():
-        sby = sd.get("sigma_by_day") if trailing else None
+        sby = sd["sigma_by_day"] if trailing else None  # fail loud if missing
         for t in sim(sd["daily"], params, sigma_by_day=sby):
             if not (t.filled and t.pnl_usd is not None):
                 continue
