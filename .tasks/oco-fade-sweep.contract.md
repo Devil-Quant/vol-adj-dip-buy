@@ -1,9 +1,10 @@
 ---
 task: oco-fade-sweep
-status: in_progress
+status: verified
 session_id: 95d775ad-3191-4acf-ad8a-087d5a3910c9
 started_at: 2026-05-21T00:00:00Z
 started_at_commit: 324a60f82140cc1c77e516822908a3980ddcfbf5
+verified_at: 2026-05-21T00:30:00Z
 ---
 
 # Task: oco-fade-sweep

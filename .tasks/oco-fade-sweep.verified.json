@@ -1,0 +1,27 @@
+{
+  "task": "oco-fade-sweep",
+  "session_id": "95d775ad-3191-4acf-ad8a-087d5a3910c9",
+  "verified_at": "2026-05-21T00:30:00Z",
+  "started_at_commit": "324a60f82140cc1c77e516822908a3980ddcfbf5",
+  "verified_at_commit": "4b4a69cd540fc93eb462777c2aa177a387d07614",
+  "modified_files": [
+    "backtest/engine.py",
+    "backtest/intraday_resolver.py",
+    "backtest/optimizer.py",
+    "scripts/fetch_history.py",
+    "scripts/sweep_fade.py",
+    "tests/test_intraday_resolver.py"
+  ],
+  "iterations_used": 1,
+  "stages": {
+    "syntax": {"status": "pass", "files_checked": 6},
+    "code_quality": {
+      "status": "pass",
+      "hard_count": 0,
+      "soft_count": 1,
+      "notes": "Reviewer confirmed the resolve_trade refactor (extracted _resolve_after_fill) is faithful and OCO fade direction/tp/stop logic is correct. 1 soft: scripts/sweep_fade.py sys.path.insert — the established script-entry pattern across all scripts; left as-is for consistency."
+    },
+    "verify_checklists": {"status": "skipped", "reason": "No verify/ directory in this repo"}
+  },
+  "notes": "OCO bidirectional-fade engine + 1-min stop-width sweep built and verified (42 tests). The actual sweep RESULT is pending the 1-min data fetch (in progress). sweep_fade.py writes no source, so this artifact stays valid when run."
+}
