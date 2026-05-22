@@ -8,7 +8,7 @@ from datetime import date, timedelta
 import pandas as pd
 
 from clients import OhlcBar
-from forecast.features import FEATURE_COLS, build_features
+from forecast.features import FEATURE_COLS, VOLUME_COLS, build_features
 from forecast.targets import build_targets
 from forecast.walkforward import (_date_folds, walk_forward_direction,
                                   walk_forward_range)
@@ -24,7 +24,8 @@ def mk_bars(n=300, seed=0):
         c = low + (h - low) * random.random()
         bars.append(OhlcBar(d=d0 + timedelta(days=i), open=round(o, 2),
                             high=round(h, 2), low=round(low, 2),
-                            close=round(c, 2)))
+                            close=round(c, 2),
+                            volume=round(random.uniform(1e6, 5e6))))
         px = c
     return bars
 
@@ -35,9 +36,9 @@ def test_features_no_lookahead():
     feat1 = build_features(bars)
     b = bars[t]
     bars2 = list(bars)
-    # mutate today's high/low/close (keep open) — must NOT change row t's features
+    # mutate today's high/low/close (keep open+volume) — must NOT change row t
     bars2[t] = OhlcBar(d=b.d, open=b.open, high=b.high + 10,
-                       low=b.low - 10, close=b.close + 5)
+                       low=b.low - 10, close=b.close + 5, volume=b.volume)
     feat2 = build_features(bars2)
     r1 = feat1[feat1["date"] == b.d].iloc[0]
     r2 = feat2[feat2["date"] == b.d].iloc[0]
@@ -50,6 +51,29 @@ def test_features_no_lookahead():
     n2 = feat2[feat2["date"] == nd].iloc[0]
     changed = any(n1[c] != n2[c] for c in FEATURE_COLS if not pd.isna(n1[c]))
     assert changed, "next-day features should use today's close"
+
+
+def test_volume_features_no_lookahead():
+    bars = mk_bars()
+    t = 25
+    feat1 = build_features(bars)
+    b = bars[t]
+    bars2 = list(bars)
+    # mutate ONLY today's volume — must NOT change row t's volume features
+    bars2[t] = OhlcBar(d=b.d, open=b.open, high=b.high, low=b.low,
+                       close=b.close, volume=b.volume * 5)
+    feat2 = build_features(bars2)
+    r1 = feat1[feat1["date"] == b.d].iloc[0]
+    r2 = feat2[feat2["date"] == b.d].iloc[0]
+    for col in VOLUME_COLS:
+        same = r1[col] == r2[col] or (pd.isna(r1[col]) and pd.isna(r2[col]))
+        assert same, f"volume feature {col} leaked today's volume"
+    # next day SHOULD reflect today's volume
+    nd = bars[t + 1].d
+    n1 = feat1[feat1["date"] == nd].iloc[0]
+    n2 = feat2[feat2["date"] == nd].iloc[0]
+    changed = any(n1[c] != n2[c] for c in VOLUME_COLS if not pd.isna(n1[c]))
+    assert changed, "next-day volume features should use today's volume"
 
 
 def test_date_folds_train_precedes_test():
