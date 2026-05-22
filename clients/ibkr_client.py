@@ -19,7 +19,7 @@ from datetime import date, datetime
 from pathlib import Path
 
 import pandas as pd
-from ib_insync import IB, Stock
+from ib_insync import IB, Index, Stock
 
 from config.settings import IBKR_HOST, IBKR_PORT, IBKR_CLIENT_ID
 
@@ -71,12 +71,17 @@ def _end_datetime(end_date) -> str:
     return end_date.strftime("%Y%m%d 23:59:59")
 
 
-def fetch_ohlc(symbol: str, days: int, *, end_date=None, use_cache: bool = True) -> list[OhlcBar]:
+def fetch_ohlc(symbol: str, days: int, *, end_date=None, use_cache: bool = True,
+               sec_type: str = "STK", exchange: str | None = None) -> list[OhlcBar]:
     """Fetch the most recent `days` TRADING sessions of daily OHLC for `symbol`.
 
     IBKR's `'{days} D'` duration returns that many trading sessions (not
     calendar days). `end_date` (str 'YYYY-MM-DD' or datetime.date) anchors the
     window end; None = up to now. Bars are returned chronological.
+
+    `sec_type="IND"` fetches an index (e.g. VIX via Index('VIX','CBOE')); the
+    default "STK" fetches a stock. `exchange` overrides the default routing
+    (SMART for stocks, CBOE for indices).
     """
     symbol = symbol.strip().upper()
     if not symbol:
@@ -96,7 +101,10 @@ def fetch_ohlc(symbol: str, days: int, *, end_date=None, use_cache: bool = True)
             return _df_to_bars(pd.read_parquet(cache_file))
 
     ib = _get_ib()
-    contract = Stock(symbol, "SMART", "USD")
+    if sec_type == "IND":
+        contract = Index(symbol, exchange or "CBOE")
+    else:
+        contract = Stock(symbol, exchange or "SMART", "USD")
     ib.qualifyContracts(contract)
     # IBKR rejects daily durations > 365 expressed in "D" — must use years.
     duration = f"{days} D" if days <= 365 else f"{days // 252 + 2} Y"
