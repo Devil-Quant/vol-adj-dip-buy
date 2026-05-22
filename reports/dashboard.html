@@ -164,22 +164,48 @@
   </div>
 
   <!-- HOW IT WORKS -->
-  <h2>3 · What the strategy is (in plain terms)</h2>
-  <div class="grid g2">
+  <h2>4 · Strategy breakdown — how it works, step by step</h2>
+  <div class="card">
+    <h3 style="margin-top:2px">The volatility unit: σ</h3>
+    <p>σ is the <b>standard deviation of each day's High−Low range</b> over the lookback window (the sheet's cell <code>L3</code>; ≈2.30 for NVDA). Every order is placed a multiple of σ from yesterday's close — so a calm stock gets <b>tight</b> orders and a wild stock gets <b>wide</b> ones. That auto-scaling is the "volatility-adjusted" part.</p>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <h3 style="margin-top:2px">The Buy recipe (one trade)</h3>
+    <div class="step"><div class="n">1</div><div>Yesterday closes at <b>C</b>.</div></div>
+    <div class="step"><div class="n">2</div><div>Place a <b>buy limit at C − 1σ</b> (the dip). It fills only if today's price trades down to it.</div></div>
+    <div class="step"><div class="n">3</div><div>If filled: <b>take-profit at C + 0.5σ</b>, <b>stop at entry − 3σ</b>.</div></div>
+    <div class="step"><div class="n">4</div><div>If the take-profit isn't hit that day, <b>hold</b> and watch the next <b>20 trading days</b> — whichever of TP / stop is touched first wins.</div></div>
+    <div class="step"><div class="n">5</div><div>Size every trade at <b>$100,000</b>. (The Short is the exact mirror.)</div></div>
+  </div>
+  <div class="grid g2" style="margin-top:14px">
     <div class="card">
       <span class="badge b-blue">Strategy 1 — Buy (dip-buy)</span>
-      <p>Bet that a one-σ <b>dip below</b> yesterday's close bounces. Place a buy limit at <code>prevClose − 1σ</code>; take profit at <code>prevClose + 0.5σ</code>; stop <code>3σ</code> below entry. If profit isn't hit that day, hold and watch the next <b>20 trading days</b> for TP or stop, whichever comes first.</p>
-      <p class="small mut">Candidates: Finviz "strong wedge-up" charts.</p>
+      <p>Bet a one-σ <b>dip below</b> yesterday's close bounces. <code>entry C−1σ</code> · <code>TP C+0.5σ</code> · <code>stop entry−3σ</code>. Candidates: Finviz <b>"strong wedge-up"</b> charts.</p>
     </div>
     <div class="card">
       <span class="badge b-blue">Strategy 2 — Short (pop-short)</span>
-      <p>Mirror image: short a one-σ <b>pop above</b> yesterday's close; cover at <code>entry − 0.75σ</code>; stop <code>3σ</code> above. <b>Two gates</b> the sheet adds (and we hadn't ported): only short when <b style="color:var(--amber)">VIX &gt; 17</b> <b>and</b> the analyst rating is <b style="color:var(--amber)">Sell / Strong Sell</b>.</p>
-      <p class="small mut">σ = standard deviation of the daily High−Low range. Size = $100k/trade.</p>
+      <p>Mirror: short a one-σ <b>pop above</b> the close. <code>entry C+1σ</code> · <code>cover entry−0.75σ</code> · <code>stop entry+3σ</code>. <b>Two gates</b> the sheet adds: only short when <b style="color:var(--amber)">VIX &gt; 17</b> <b>and</b> rating is <b style="color:var(--amber)">Sell / Strong Sell</b>.</p>
+    </div>
+  </div>
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card">
+      <h3 style="margin-top:2px">Per-stock tuning (Variables tab)</h3>
+      <table>
+        <tr><th>Stock</th><th>Side</th><th class="num">Days</th><th class="num">entry σ</th><th class="num">TP σ</th><th class="num">stop σ</th></tr>
+        <tr><td>TIGR</td><td>Buy</td><td class="num">20</td><td class="num">1.5</td><td class="num">1.0</td><td class="num">3.0</td></tr>
+        <tr><td>BTAI</td><td>Short</td><td class="num">50</td><td class="num">1.25</td><td class="num">0.75</td><td class="num">2.5</td></tr>
+        <tr><td>SNAP</td><td>Buy</td><td class="num">100</td><td class="num">1.0</td><td class="num">0.5</td><td class="num">2.0</td></tr>
+      </table>
+      <p class="small mut">The NVDA reference used the defaults (1.0 / 0.5 / 3.0, 100-day lookback).</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:2px">Screening &amp; universe</h3>
+      <p class="small">Candidates come from a <b>Finviz wedge screen</b> (up for Buy, down for Short) over a 3-month history. A <code>Lookup Table</code> (190 names) holds each stock's fundamentals + "average daily range %" and maps it to a <b>SPDR sector ETF</b>. The summary tab then benchmarks each result against buy-and-hold, the S&amp;P / NASDAQ / DOW, and the sector ETF.</p>
     </div>
   </div>
 
   <!-- ROBUSTNESS -->
-  <h2>4 · Does it survive honest validation? No.</h2>
+  <h2>5 · Does it survive honest validation? No.</h2>
   <p>Two independent stress tests, both on real intraday data. Read the <i>shape</i>, not just the totals.</p>
   <div class="grid g2">
     <div class="card">
@@ -207,7 +233,7 @@
   </div>
 
   <!-- FOLLOW ON -->
-  <h2>5 · What we learned chasing an edge anyway</h2>
+  <h2>6 · What we learned chasing an edge anyway</h2>
   <div class="grid g3">
     <div class="card"><span class="badge b-red">Direction</span><p class="small">Predicting up/down days from price: out-of-sample AUC ≈ <b>0.50</b> (a coin flip). The dumb "market always rises" rule beats the model. <b>Dead.</b></p></div>
     <div class="card"><span class="badge b-green">Volatility</span><p class="small">Predicting <i>how much</i> it moves: real skill on the <b>index</b> (SPY R² <b>0.50→0.61</b> out-of-sample). On single names it's just "vol clusters" — free from a one-line average.</p></div>
@@ -218,14 +244,33 @@
   </div>
 
   <!-- CAVEATS -->
-  <h2>6 · Honest caveats on this verdict</h2>
+  <h2>7 · Honest caveats on this verdict</h2>
   <div class="grid g2">
     <div class="card"><span class="badge b-amber">Wrong universe</span><p class="small">We rejected it on liquid <b>mega-cap tech</b> (NVDA, TSLA, AVGO…). The sheet was designed for <b>Finviz-screened small-cap wedge</b> setups (TIGR, BTAI, SNAP…). The fill-illusion is mechanical and universe-independent, so the verdict holds — but that screened universe was never run end-to-end.</p></div>
     <div class="card"><span class="badge b-amber">Ungated short</span><p class="small">Our short backtest was purely mechanical. The sheet's short has real filters (<b>VIX&gt;17 + Sell rating</b>) we hadn't implemented — so the short was tested in a form stricter than designed.</p></div>
   </div>
 
+  <!-- SOURCES -->
+  <h2>8 · Where this information comes from</h2>
+  <p>Nothing here is hand-waved — every number traces to one of three sources:</p>
+  <div class="grid g3">
+    <div class="card">
+      <span class="badge b-blue">The strategy</span>
+      <p class="small">The Excel workbook <code>Copy of Stock - Strategy 1 and 2 (share).xlsx</code> (originally a Google Sheet — its data cells are <code>GOOGLEFINANCE()</code> pulls). Tabs: <b>Buy, Short, Variables, BUY Screened Summary, Lookup Table</b>. The σ (cell <code>L3</code>), the per-day win column (<code>AA</code>), and the entry/TP/stop multiples were read straight from the cells.</p>
+    </div>
+    <div class="card">
+      <span class="badge b-blue">The price data</span>
+      <p class="small">Daily + intraday (<b>5-minute, 1-minute</b>) bars from <b>Interactive Brokers</b> (paper gateway). VIX from IBKR (CBOE index); SPY 15-year daily for the volatility study. <span class="mut">yfinance is not used anywhere.</span></p>
+    </div>
+    <div class="card">
+      <span class="badge b-blue">The engine &amp; checks</span>
+      <p class="small">A Python re-implementation that reproduces the Excel logic <b>to the penny</b>; the realistic engine re-resolves the same trades on 5-min bars. Validation: <b>out-of-sample</b> split, <b>walk-forward</b>, <b>Monte-Carlo</b>. The fabricated-win table = the Excel's 13 claimed wins cross-checked vs IBKR 5-min sequencing.</p>
+    </div>
+  </div>
+  <p class="small mut">Reference window: NVDA, 69 trading sessions ending 2026-05-15 (σ = 2.30). Broader tests: a 10-name 2-year 5-min set; SPY 15-year daily. Full written write-up: <code>reports/excel-strategy-analysis.md</code>.</p>
+
   <!-- BOTTOM LINE -->
-  <h2>7 · Bottom line &amp; next steps</h2>
+  <h2>9 · Bottom line &amp; next steps</h2>
   <div class="card">
     <ul>
       <li><b>The strategy:</b> no edge as built/tested; the Excel profit is mostly a daily-fill illusion.</li>
