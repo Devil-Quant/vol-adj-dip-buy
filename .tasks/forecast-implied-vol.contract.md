@@ -1,9 +1,10 @@
 ---
 task: forecast-implied-vol
-status: in_progress
+status: verified
 session_id: 95d775ad-3191-4acf-ad8a-087d5a3910c9
 started_at: 2026-05-22T02:00:00Z
 started_at_commit: 0cb8e161eac72efc4a2e0e8958d585fe91d36083
+verified_at: 2026-05-22T02:30:00Z
 ---
 
 # Task: forecast-implied-vol
