@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from typing import Sequence
 
-import numpy as np
 import pandas as pd
 
 FEATURE_COLS = ["gap", "prior_range", "range_ewma", "ret_1", "ret_5",
