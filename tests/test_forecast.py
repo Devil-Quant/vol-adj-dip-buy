@@ -2,6 +2,7 @@
 walk-forward train precedes test, targets sane, and the evaluators run."""
 from __future__ import annotations
 
+import math
 import random
 from datetime import date, timedelta
 
@@ -9,6 +10,7 @@ import pandas as pd
 
 from clients import OhlcBar
 from forecast.features import FEATURE_COLS, VOLUME_COLS, build_features
+from forecast.implied import build_vix_feature, merge_vix
 from forecast.targets import build_targets
 from forecast.walkforward import (_date_folds, walk_forward_direction,
                                   walk_forward_range)
@@ -90,6 +92,27 @@ def test_targets_sane():
     assert {"date", "range", "up"}.issubset(tgt.columns)
     assert (tgt["range"] >= 0).all()
     assert tgt["up"].isin([0, 1]).all()
+
+
+def test_vix_feature_no_lookahead():
+    vb = [OhlcBar(d=date(2024, 1, 1) + timedelta(days=i), open=15.0, high=16.0,
+                  low=14.0, close=10.0 + i) for i in range(10)]
+    f = build_vix_feature(vb)
+    assert pd.isna(f.iloc[0]["vix_implied"])           # row 0 has no prior VIX
+    # row t uses VIX close from t-1 (here close_0 = 10.0), not today's close
+    expected = 10.0 / 100.0 / math.sqrt(252)
+    assert abs(f.iloc[1]["vix_implied"] - expected) < 1e-12
+
+
+def test_merge_vix_aligns_and_drops_unmatched():
+    bars = mk_bars(n=60)
+    frame = build_features(bars).merge(build_targets(bars), on="date")
+    # VIX covers only the first 30 dates -> inner-merge keeps the overlap only
+    vb = [OhlcBar(d=bars[i].d, open=15.0, high=16.0, low=14.0, close=15.0)
+          for i in range(30)]
+    merged = merge_vix(frame, vb)
+    assert "vix_implied" in merged.columns
+    assert len(merged) == 30
 
 
 def test_walk_forward_runs():
