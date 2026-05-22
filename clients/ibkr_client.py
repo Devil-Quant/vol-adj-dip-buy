@@ -34,6 +34,7 @@ class OhlcBar:
     high: float
     low: float
     close: float
+    volume: float = 0.0
 
 
 _ib: IB | None = None
@@ -113,7 +114,8 @@ def fetch_ohlc(symbol: str, days: int, *, end_date=None, use_cache: bool = True)
     bars = bars[-days:]  # trim to the requested number of sessions
 
     df = pd.DataFrame(
-        [{"date": b.date, "Open": b.open, "High": b.high, "Low": b.low, "Close": b.close}
+        [{"date": b.date, "Open": b.open, "High": b.high, "Low": b.low,
+          "Close": b.close, "Volume": b.volume}
          for b in bars]
     )
     if use_cache:
@@ -136,6 +138,7 @@ def _df_to_bars(df: pd.DataFrame) -> list[OhlcBar]:
     for _, row in df.iterrows():
         raw = row["date"]
         d_val = raw.date() if isinstance(raw, datetime) else raw
+        vol = row["Volume"] if "Volume" in row.index else 0.0
         bars.append(
             OhlcBar(
                 d=d_val,
@@ -143,6 +146,7 @@ def _df_to_bars(df: pd.DataFrame) -> list[OhlcBar]:
                 high=float(row["High"]),
                 low=float(row["Low"]),
                 close=float(row["Close"]),
+                volume=float(vol) if pd.notna(vol) else 0.0,
             )
         )
     return bars
