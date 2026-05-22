@@ -141,7 +141,7 @@ def main() -> int:
             _run_block(spy, spy_used, args.splits, "SPY (index regime)")
 
     print("\nNote: daily, ~2.5yr. Order-flow (AGGR) is the separate CRYPTO "
-          "track — it does not cover these equities.")
+          "track - it does not cover these equities.")
     return 0
 
 
