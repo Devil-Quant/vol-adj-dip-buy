@@ -9,11 +9,15 @@ import pandas as pd
 
 FEATURE_COLS = ["gap", "prior_range", "range_ewma", "ret_1", "ret_5",
                 "vol_5", "vol_20", "dist_ma20", "dow"]
+# volume features (added in v2) — kept separate so the harness can compare
+# price-only vs price+volume. All use ONLY prior-day volume (no look-ahead).
+VOLUME_COLS = ["rvol", "vol_trend", "dvol_z"]
 
 
 def _frame(bars: Sequence) -> pd.DataFrame:
     df = pd.DataFrame([{"date": b.d, "open": b.open, "high": b.high,
-                        "low": b.low, "close": b.close} for b in bars])
+                        "low": b.low, "close": b.close,
+                        "volume": getattr(b, "volume", 0.0)} for b in bars])
     return df.sort_values("date").reset_index(drop=True)
 
 
@@ -37,4 +41,15 @@ def build_features(bars: Sequence) -> pd.DataFrame:
     ma20 = c.rolling(20).mean()
     feat["dist_ma20"] = (prev_close - ma20.shift(1)) / ma20.shift(1)
     feat["dow"] = pd.to_datetime(df["date"]).dt.dayofweek.astype(float)
+
+    # volume features — only prior-day volume is known at today's open, so every
+    # term is shift(1). rvol = yesterday's volume vs its 20d average; vol_trend =
+    # 5d vs 20d volume; dvol_z = z-score of yesterday's dollar volume.
+    v = df["volume"]
+    avg20 = v.rolling(20).mean()
+    feat["rvol"] = v.shift(1) / avg20.shift(1)
+    feat["vol_trend"] = v.rolling(5).mean().shift(1) / avg20.shift(1)
+    dollar = c * v
+    d_shift = dollar.shift(1)
+    feat["dvol_z"] = (d_shift - d_shift.rolling(20).mean()) / d_shift.rolling(20).std()
     return feat
