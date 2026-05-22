@@ -232,8 +232,42 @@
     </div>
   </div>
 
+  <!-- OPTIMIZATION -->
+  <h2>6 · We optimized it anyway — and even with overfit license, no edge</h2>
+  <p>The honest stress test: search the σ multipliers for the best possible P&amp;L (<b>no reward:risk cap</b>, pure profit-max) on 10 names over 2 years of 5-minute data — then check whether the winner survives out-of-sample.</p>
+  <div class="grid g2">
+    <div class="card">
+      <span class="badge b-amber">The "optimal" multipliers</span>
+      <div class="ladder" style="margin-top:10px">
+        <div class="l-entry"><span>σ entry (dip depth)</span><b>1.0σ</b></div>
+        <div class="l-tp"><span>Take-profit</span><b>2.0σ</b></div>
+        <div class="l-stop"><span>Stop</span><b>3.0σ</b></div>
+      </div>
+      <div class="kpi green" style="margin-top:12px">+$485,934</div>
+      <div class="small mut">in-sample · 2,253 trades · 50% win · $216/trade</div>
+      <p class="small" style="margin-top:10px">Every top combo favors a <b>wide 2σ target + wide 3σ stop</b> (~1:1 RR) — not mean-reversion, but "buy the dip, hold for a big move, wide stop" = the most <b>long-beta</b> corner of the grid.</p>
+    </div>
+    <div class="card">
+      <span class="badge b-red">…then it fails out-of-sample</span>
+      <table style="margin-top:10px">
+        <tr><th>Test</th><th class="num">In-sample</th><th class="num">Out-of-sample</th></tr>
+        <tr><td>Pick the IS-best combo</td><td class="num pos">+$823,314</td><td class="num neg">−$430,690</td></tr>
+        <tr><td>Optimal combo, held fixed</td><td class="num pos">+$593,881</td><td class="num neg">−$107,947</td></tr>
+        <tr><td>Monte-Carlo prob(profit)</td><td class="num">92%</td><td class="num neg">28%</td></tr>
+        <tr><td>Worst drawdown month</td><td class="num neg" colspan="2">−$202,000</td></tr>
+      </table>
+      <p class="small">Choosing the in-sample winner <b>lost ~$430k forward</b>. Out-of-sample it's a <b>~72%-to-lose</b> proposition.</p>
+    </div>
+  </div>
+  <div class="callout amber">
+    <b>Honest nuance:</b> the walk-forward quarters were <i>all</i> positive (+$6k / +$275k / +$126k / +$94k) — not a clean collapse. But all four were <b>up-markets</b> for these names; the optimal combo is long beta, so it grinds up in rallies and craters in selloffs (that −$202k month). The IS/OOS split simply landed the held-out window on a drawdown.
+  </div>
+  <div class="callout red">
+    <b>Verdict:</b> optimizing the σ multipliers found <b>no edge</b> — it found the most-long-beta corner of the grid and fit it to a two-year melt-up. The +$486k is real money only in hindsight. "Optimize even if overfit, then test it" → textbook overfit.
+  </div>
+
   <!-- FOLLOW ON -->
-  <h2>6 · What we learned chasing an edge anyway</h2>
+  <h2>7 · What we learned chasing an edge anyway</h2>
   <div class="grid g3">
     <div class="card"><span class="badge b-red">Direction</span><p class="small">Predicting up/down days from price: out-of-sample AUC ≈ <b>0.50</b> (a coin flip). The dumb "market always rises" rule beats the model. <b>Dead.</b></p></div>
     <div class="card"><span class="badge b-green">Volatility</span><p class="small">Predicting <i>how much</i> it moves: real skill on the <b>index</b> (SPY R² <b>0.50→0.61</b> out-of-sample). On single names it's just "vol clusters" — free from a one-line average.</p></div>
@@ -244,14 +278,14 @@
   </div>
 
   <!-- CAVEATS -->
-  <h2>7 · Honest caveats on this verdict</h2>
+  <h2>8 · Honest caveats on this verdict</h2>
   <div class="grid g2">
     <div class="card"><span class="badge b-amber">Wrong universe</span><p class="small">We rejected it on liquid <b>mega-cap tech</b> (NVDA, TSLA, AVGO…). The sheet was designed for <b>Finviz-screened small-cap wedge</b> setups (TIGR, BTAI, SNAP…). The fill-illusion is mechanical and universe-independent, so the verdict holds — but that screened universe was never run end-to-end.</p></div>
     <div class="card"><span class="badge b-amber">Ungated short</span><p class="small">Our short backtest was purely mechanical. The sheet's short has real filters (<b>VIX&gt;17 + Sell rating</b>) we hadn't implemented — so the short was tested in a form stricter than designed.</p></div>
   </div>
 
   <!-- SOURCES -->
-  <h2>8 · Where this information comes from</h2>
+  <h2>9 · Where this information comes from</h2>
   <p>Nothing here is hand-waved — every number traces to one of three sources:</p>
   <div class="grid g3">
     <div class="card">
@@ -270,7 +304,7 @@
   <p class="small mut">Reference window: NVDA, 69 trading sessions ending 2026-05-15 (σ = 2.30). Broader tests: a 10-name 2-year 5-min set; SPY 15-year daily. Full written write-up: <code>reports/excel-strategy-analysis.md</code>.</p>
 
   <!-- BOTTOM LINE -->
-  <h2>9 · Bottom line &amp; next steps</h2>
+  <h2>10 · Bottom line &amp; next steps</h2>
   <div class="card">
     <ul>
       <li><b>The strategy:</b> no edge as built/tested; the Excel profit is mostly a daily-fill illusion.</li>
