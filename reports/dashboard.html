@@ -95,8 +95,28 @@
     <p class="small" style="margin-top:14px"><b>Why the collapse?</b> <b>8 of the Excel's own 13</b> claimed same-day winners are sequencing artifacts (next section) — ≈$14,360 of the $23,639 it booked as "intraday exec". Stops the daily model fills at the exact price actually <b>gap through</b> on the open. The daily bar can't tell you whether the low came before the high — and that order is everything.</p>
   </div>
 
+  <!-- WHY 4.4 -->
+  <h2>2 · Why is it still "profitable" (+4.4%)? It's diluted beta</h2>
+  <p>Realistic fills erased the fake same-day wins — yet the total stays positive. Here is where every dollar comes from, the daily model vs the realistic one, on the <i>same trades</i>:</p>
+  <div class="card">
+    <table>
+      <tr><th>P&amp;L bucket</th><th class="num">Daily (Excel-like)</th><th class="num">Intraday-realistic</th></tr>
+      <tr><td>Same-day take-profit</td><td class="num">12 · +$22,433</td><td class="num">6 · +$11,418</td></tr>
+      <tr><td>Take-profit within 20 days</td><td class="num">12 · +$22,838</td><td class="num pos">16 · +$30,055</td></tr>
+      <tr><td>Stop loss</td><td class="num neg">7 · −$25,329</td><td class="num neg">10 · −$37,109</td></tr>
+      <tr><td><b>Total</b></td><td class="num"><b>+$19,942 (19.9%)</b></td><td class="num"><b>+$4,364 (4.4%)</b></td></tr>
+      <tr><td>Buy &amp; hold, same window</td><td class="num" colspan="2"><b style="color:var(--amber)">+21.5%</b></td></tr>
+    </table>
+    <div class="step"><div class="n">1</div><div>The fabricated same-day wins don't vanish — they become <b>open positions</b> that resolve over the next 20 days. The same-day bucket halves (12→6) while the <b>20-day-TP bucket grows</b> (12→16, +$30k).</div></div>
+    <div class="step"><div class="n">2</div><div>Those dips only clawed back the small +0.5σ profit <b>because NVDA was rising</b> (+21.5%). On an uptrending stock almost any dip recovers a tiny target within 20 days — so the surviving profit is just the <b>stock's drift leaking through</b>.</div></div>
+    <div class="step"><div class="n">3</div><div>Meanwhile the realistic stops got <b>worse</b> (−$25k → −$37k: more stop-outs, gapping through), eating most of the gain.</div></div>
+    <div class="callout red">
+      <b>The punchline:</b> the strategy turned a <b>+21.5%</b> move into <b>+4.4%</b> — about <b>1/5 of just holding the stock</b>, with added fill risk, stop-outs and complexity. That is <b>diluted beta, not alpha</b>. Strip out the bull market and the stop bucket dominates → a loss. (Which is exactly why the out-of-sample / walk-forward / Monte-Carlo tests came back negative.)
+    </div>
+  </div>
+
   <!-- THE EXAMPLE -->
-  <h2>2 · A worked example — straight from the Excel sheet</h2>
+  <h2>3 · A worked example — straight from the Excel sheet</h2>
   <p><b>Excel <code>Buy</code> tab, row 8: NVDA, Feb 12 2026.</b> The sheet's own σ <code>2.30</code> (cell <code>L3</code>), prior close <code>190.05</code>. Cell <code>AA8</code> books a <b style="color:var(--red)">+$1,836.32 same-day win</b>. The strategy's levels for that day:</p>
   <div class="grid g2">
     <div class="card">
