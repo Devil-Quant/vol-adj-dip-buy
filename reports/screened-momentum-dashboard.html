@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Screened TP/SL Momentum Backtest — Review</title>
+<style>
+  :root{
+    --bg:#0f1420; --card:#171e2e; --card2:#1d2740; --ink:#e8edf6; --mut:#9fb0c9;
+    --line:#2a3550; --green:#34d399; --red:#f87171; --amber:#fbbf24; --blue:#60a5fa;
+    --accent:#818cf8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.6 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:32px 22px 80px}
+  h1{font-size:30px;margin:0 0 6px;letter-spacing:-.3px}
+  h2{font-size:21px;margin:38px 0 14px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;margin:18px 0 8px;color:var(--ink)}
+  p{color:var(--mut);margin:8px 0}
+  .sub{color:var(--mut);font-size:15px;margin-top:0}
+  .grid{display:grid;gap:16px}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g2{grid-template-columns:1fr 1fr}
+  @media(max-width:760px){.g3,.g2{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .verdict{background:linear-gradient(135deg,#2a1320,#171e2e);border:1px solid #5b2330}
+  .badge{display:inline-block;font-weight:700;font-size:12px;letter-spacing:.5px;
+    text-transform:uppercase;padding:4px 10px;border-radius:999px}
+  .b-red{background:rgba(248,113,113,.16);color:var(--red)}
+  .b-green{background:rgba(52,211,153,.16);color:var(--green)}
+  .b-amber{background:rgba(251,191,36,.16);color:var(--amber)}
+  .b-blue{background:rgba(96,165,250,.16);color:var(--blue)}
+  .kpi{font-size:34px;font-weight:800;letter-spacing:-.5px;margin:2px 0}
+  .kpi.red{color:var(--red)} .kpi.green{color:var(--green)} .kpi.amber{color:var(--amber)}
+  .kpi-label{color:var(--mut);font-size:13px;text-transform:uppercase;letter-spacing:.4px}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line)}
+  th{color:var(--mut);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.4px}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .neg{color:var(--red)} .pos{color:var(--green)} .amb{color:var(--amber)}
+  .bars{display:flex;align-items:flex-end;gap:26px;height:240px;padding:10px 6px 0}
+  .bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%}
+  .bar .col{width:78%;border-radius:8px 8px 0 0;display:flex;align-items:flex-start;
+    justify-content:center;color:#0b0f17;font-weight:800;padding-top:8px;font-size:15px}
+  .bar .cap{margin-top:8px;color:var(--mut);font-size:12.5px;text-align:center}
+  .callout{background:var(--card2);border:1px solid var(--line);border-left:4px solid var(--accent);
+    border-radius:10px;padding:12px 16px;margin:12px 0}
+  .callout.red{border-left-color:var(--red)} .callout.green{border-left-color:var(--green)}
+  .callout.amber{border-left-color:var(--amber)}
+  code{background:#0c1322;padding:2px 6px;border-radius:5px;color:#cdd9f0;font-size:13px}
+  .mut{color:var(--mut)} .small{font-size:13px}
+  .step{display:flex;gap:12px;margin:10px 0;align-items:flex-start}
+  .step .n{flex:0 0 26px;height:26px;border-radius:50%;background:var(--card2);
+    border:1px solid var(--line);display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:13px;color:var(--accent)}
+  ul{color:var(--mut);margin:8px 0;padding-left:20px} li{margin:5px 0}
+  .foot{margin-top:40px;color:var(--mut);font-size:12.5px;border-top:1px solid var(--line);padding-top:16px}
+  .tag{color:var(--accent);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Screened TP/SL Momentum Backtest — Independent Review</h1>
+  <p class="sub">A σ-scaled take-profit/stop strategy on a 33-name Finviz momentum screen (Feb 9 – May 18 2026, $100k/trade), re-tested against realistic fills and a buy-and-hold benchmark. <span class="mut">2026-05-22</span></p>
+
+  <!-- VERDICT -->
+  <div class="card verdict" style="margin-top:18px">
+    <span class="badge b-red">Verdict</span>
+    <h3 style="margin-top:12px;font-size:19px">In an optimistic-fill model it nearly matches buy-and-hold. With <span style="color:var(--red)">realistic fills</span> it captures only <span style="color:var(--red)">~15% of just holding the same names</span> — before costs.</h3>
+    <p>The original summary reports strong gross numbers (profit factor ~2, "proceed to validation"). They're real <i>in its model</i> — but that model uses optimistic fills and never compares to buy-and-hold. Re-run on 5-minute bars with a hold benchmark, it's a <b>volatility-harvesting overlay riding a momentum melt-up</b>, not an edge. It's a worse way to be long these names.</p>
+  </div>
+
+  <!-- HEAD TO HEAD -->
+  <h2>1 · The head-to-head (10 representative names, $100k/slot)</h2>
+  <p>Same names, same window, three ways — passive hold vs the strategy on optimistic daily fills vs the strategy on realistic 5-minute fills:</p>
+  <div class="grid g3">
+    <div class="card"><div class="kpi-label">Buy &amp; hold</div><div class="kpi green">+58.7%</div><div class="small mut">$587,401 — just hold $100k of each</div></div>
+    <div class="card"><div class="kpi-label">Strategy — daily (optimistic)</div><div class="kpi amber">+57.0%</div><div class="small mut">$569,713 — 97% of hold (the flattering view)</div></div>
+    <div class="card"><div class="kpi-label">Strategy — realistic fills</div><div class="kpi red">+9.0%</div><div class="small mut">$90,014 — just 15% of hold, before costs</div></div>
+  </div>
+  <div class="card" style="margin-top:16px">
+    <div class="bars">
+      <div class="bar"><div class="col" style="height:100%;background:var(--green)">+58.7%</div><div class="cap">Buy &amp; hold</div></div>
+      <div class="bar"><div class="col" style="height:97%;background:var(--amber)">+57.0%</div><div class="cap">Strategy<br>daily</div></div>
+      <div class="bar"><div class="col" style="height:15%;background:var(--red)">+9.0%</div><div class="cap">Strategy<br>realistic</div></div>
+    </div>
+    <p class="small" style="margin-top:14px"><b>Daily → realistic haircut: 84%.</b> The daily model banks same-day take-profits that couldn't fill in sequence and fills stops at exact prices that really gap through. Strip those out and the strategy keeps <b>+9.0%</b> while simply holding kept <b>+58.7%</b>. The "looks like buy-and-hold" result is a fill illusion.</p>
+  </div>
+
+  <!-- PER NAME -->
+  <h2>2 · Per name — it caps trends, harvests chop</h2>
+  <p>Each name as a $100k slot. Watch the trenders (top) vs the choppy names (bottom):</p>
+  <div class="card">
+    <table>
+      <tr><th>Symbol</th><th class="num">Buy &amp; hold</th><th class="num">Strategy daily</th><th class="num">Strategy realistic</th></tr>
+      <tr><td>SNDK</td><td class="num pos">+$131,325</td><td class="num">+$110,837</td><td class="num neg">+$10,373</td></tr>
+      <tr><td>FLEX</td><td class="num pos">+$105,790</td><td class="num">+$1,978</td><td class="num neg">−$20,272</td></tr>
+      <tr><td>ARM</td><td class="num pos">+$104,176</td><td class="num">+$66,361</td><td class="num neg">+$11,182</td></tr>
+      <tr><td>VIAV</td><td class="num pos">+$103,393</td><td class="num">+$63,730</td><td class="num neg">+$17,427</td></tr>
+      <tr><td>DDOG</td><td class="num pos">+$61,475</td><td class="num">+$44,748</td><td class="num neg">+$2,834</td></tr>
+      <tr><td colspan="4" class="small mut">— choppy / range-bound names: the strategy adds value here —</td></tr>
+      <tr><td>STNG</td><td class="num">+$28,686</td><td class="num">+$84,612</td><td class="num pos">+$28,381</td></tr>
+      <tr><td>ACMR</td><td class="num">+$8,827</td><td class="num">+$83,562</td><td class="num pos">+$49,168</td></tr>
+      <tr><td>APP</td><td class="num">+$4,073</td><td class="num">+$99,071</td><td class="num pos">+$22,915</td></tr>
+      <tr><td>NVDA</td><td class="num">+$16,319</td><td class="num">+$28,446</td><td class="num">+$9,698</td></tr>
+      <tr><td>IONQ</td><td class="num">+$23,337</td><td class="num neg">−$13,632</td><td class="num neg">−$41,693</td></tr>
+      <tr><td><b>Total</b></td><td class="num pos"><b>+$587,401</b></td><td class="num"><b>+$569,713</b></td><td class="num neg"><b>+$90,014</b></td></tr>
+    </table>
+  </div>
+  <div class="callout amber">
+    <b>So it's not pure beta — it's a vol overlay.</b> On the big <b>trenders</b> (SNDK, FLEX, ARM, VIAV) it caps the upside: realistic SNDK +$10k vs +$131k from just holding; FLEX actually <b>loses</b> while holding made +$106k. On <b>choppy</b> names (ACMR, STNG, APP) it genuinely harvests round-trips. In aggregate the chop gains can't offset the trend upside it throws away — so it loses to buy-and-hold.
+  </div>
+
+  <!-- WHAT THE SUMMARY CLAIMED -->
+  <h2>3 · What the original summary claimed vs what's missing</h2>
+  <div class="grid g2">
+    <div class="card">
+      <h3 style="margin-top:2px">Its headline numbers</h3>
+      <table>
+        <tr><td>Aggregate gross PnL</td><td class="num">$335,668</td></tr>
+        <tr><td>Trades / symbols / configs</td><td class="num">400 / 33 / 8</td></tr>
+        <tr><td>Profit factor</td><td class="num">1.98</td></tr>
+        <tr><td>Win rate</td><td class="num">47.5%</td></tr>
+        <tr><td>Expectancy / trade</td><td class="num">$839</td></tr>
+        <tr><td>Lead config <code>t1.25_s1.00</code></td><td class="num">$82,262 · PF 2.35</td></tr>
+      </table>
+      <p class="small mut">All gross, all in an optimistic-fill model.</p>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:2px">The four gaps that flip it</h3>
+      <div class="step"><div class="n">1</div><div><b>No buy-and-hold benchmark.</b> Its names rose <b>+48% to +131%</b>. "All 33 net-positive" is a melt-up, not edge.</div></div>
+      <div class="step"><div class="n">2</div><div><b>Optimistic fills.</b> Realistic 5-min fills cut the result <b>84%</b> (proven above). Same-day wins that can't sequence; stops that gap.</div></div>
+      <div class="step"><div class="n">3</div><div><b>Headline is ~8× double-counted</b> — $335,668 sums 8 alternative configs of the same trades (it admits this).</div></div>
+      <div class="step"><div class="n">4</div><div><b>In-sample selection + no costs.</b> The "lead" config is the best of 8 on 35 dates (overfit); ~600 round-trips of costs are excluded.</div></div>
+    </div>
+  </div>
+
+  <!-- WHAT IT IS -->
+  <h2>4 · What the strategy actually is</h2>
+  <div class="card">
+    <p>A <b>volatility-scaled take-profit / stop</b> system. σ = the typical daily range; each config <code>t{X}_s{Y}</code> sets take-profit at <b>X·σ</b> and stop at <b>Y·σ</b>. It buys dips on a <b>Finviz momentum/semiconductor screen</b>, takes a small profit or stops out, and holds open positions for up to ~14 days. It is the same family as the Excel volatility-adjusted dip-buy — just with a tighter stop and wider target (e.g. <code>t1.25_s1.00</code> = TP 1.25σ, stop 1.0σ).</p>
+    <p class="small mut">Median hold 3.1h, mean 20.6h, longest ~14 days — overnight-capable, not purely intraday. That multi-day hold is how it rides the drift.</p>
+  </div>
+
+  <!-- SOURCES -->
+  <h2>5 · Where this review's numbers come from</h2>
+  <div class="grid g3">
+    <div class="card"><span class="badge b-blue">The claim</span><p class="small">The pasted ChatGPT executive summary of the backtest (33 symbols, 8 configs, 400 trades, $335,668 gross, lead <code>t1.25_s1.00</code>).</p></div>
+    <div class="card"><span class="badge b-blue">The data</span><p class="small">Daily + <b>5-minute</b> bars from <b>Interactive Brokers</b> for the named symbols over the exact window. Buy-and-hold computed from first/last close. <span class="mut">yfinance not used.</span></p></div>
+    <div class="card"><span class="badge b-blue">The engine</span><p class="small">Our validated dip-buy engine running <code>t1.25_s1.00</code> in two modes: daily (optimistic) and 5-min first-touch with gap-aware stops (realistic). 10 names with 5-min coverage; the biggest movers + choppy + NVDA/IONQ.</p></div>
+  </div>
+  <p class="small mut">Caveat: realistic head-to-head is a 10-name representative subset (it includes the largest movers, where the effect is strongest, plus choppy names where the strategy helps). The broader 20-name buy-and-hold averaged +48.4%. Interpreting the config as TP 1.25σ / stop 1.0σ on a standard −1σ dip entry.</p>
+
+  <!-- BOTTOM LINE -->
+  <h2>6 · Bottom line</h2>
+  <div class="card">
+    <ul>
+      <li><b>The summary's "validate, don't deploy" is correct</b> — but for a stronger reason than it states.</li>
+      <li><b>The decisive test it omits — beat buy-and-hold net of realistic fills and costs — it fails:</b> realistic +9.0% vs hold +58.7% on the same names.</li>
+      <li><b>It's a vol-harvesting overlay on momentum beta:</b> it adds value on choppy names but throws away trend upside, and the optimistic-fill "profit" is 84% illusion.</li>
+      <li><b>Same conclusion as the Excel dip-buy</b> — a more complex, riskier way to underperform simply holding a basket that went up.</li>
+    </ul>
+  </div>
+
+  <div class="foot">
+    Companion to <code>reports/dashboard.html</code> (the Excel volatility-adjusted dip-buy review). Strategy source: pasted ChatGPT backtest summary. Prices: IBKR daily + 5-min, Feb 9 – May 18 2026. Engine + realistic resolver: this repo. Numbers out-of-sample / realistic where noted.
+  </div>
+</div>
+</body>
+</html>
