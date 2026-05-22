@@ -92,23 +92,23 @@
       <div class="bar"><div class="col" style="height:74%;background:var(--amber)">19.9%</div><div class="cap">Daily<br>engine</div></div>
       <div class="bar"><div class="col" style="height:16%;background:var(--red)">4.4%</div><div class="cap">Intraday<br>realistic</div></div>
     </div>
-    <p class="small" style="margin-top:14px"><b>Why the collapse?</b> About <b>7 of 12</b> "same-day winners" were sequencing artifacts (next section). Stops that the daily model fills at the exact price actually <b>gap through</b> on the open. The daily bar can't tell you whether the low came before the high — and that order is everything.</p>
+    <p class="small" style="margin-top:14px"><b>Why the collapse?</b> <b>8 of the Excel's own 13</b> claimed same-day winners are sequencing artifacts (next section) — ≈$14,360 of the $23,639 it booked as "intraday exec". Stops the daily model fills at the exact price actually <b>gap through</b> on the open. The daily bar can't tell you whether the low came before the high — and that order is everything.</p>
   </div>
 
   <!-- THE EXAMPLE -->
-  <h2>2 · A worked example — how the daily model fabricates a win</h2>
-  <p>One real trade: <b>NVDA, Feb 12 2026</b>. Prior close <code>190.05</code>, σ (stdev of daily High−Low) <code>2.33</code>. The strategy's levels for the day:</p>
+  <h2>2 · A worked example — straight from the Excel sheet</h2>
+  <p><b>Excel <code>Buy</code> tab, row 8: NVDA, Feb 12 2026.</b> The sheet's own σ <code>2.30</code> (cell <code>L3</code>), prior close <code>190.05</code>. Cell <code>AA8</code> books a <b style="color:var(--red)">+$1,836.32 same-day win</b>. The strategy's levels for that day:</p>
   <div class="grid g2">
     <div class="card">
       <div class="ladder">
-        <div class="l-tp"><span>Take-profit &nbsp;<span class="mut small">prevClose + 0.5σ</span></span><b>191.22</b></div>
+        <div class="l-tp"><span>Take-profit &nbsp;<span class="mut small">prevClose + 0.5σ</span></span><b>191.20</b></div>
         <div class="l-prev"><span>Prior close</span><b>190.05</b></div>
-        <div class="l-entry"><span>Buy entry &nbsp;<span class="mut small">prevClose − 1.0σ</span></span><b>187.72</b></div>
-        <div class="l-stop"><span>Stop &nbsp;<span class="mut small">entry − 3σ</span></span><b>180.72</b></div>
+        <div class="l-entry"><span>Buy entry &nbsp;<span class="mut small">prevClose − 1.0σ</span></span><b>187.75</b></div>
+        <div class="l-stop"><span>Stop &nbsp;<span class="mut small">entry − 3σ</span></span><b>180.85</b></div>
       </div>
       <div class="callout red" style="margin-top:14px">
-        <b>What the daily bar sees:</b> day's Low <code>187.24</code> ≤ entry <code>187.72</code> ✓ &nbsp;and&nbsp; day's High <code>193.61</code> ≥ TP <code>191.22</code> ✓.<br>
-        → It records a <b style="color:var(--red)">same-day win of +$3.50/share</b> (≈ +$1,866).
+        <b>What the Excel row records:</b> its own Low <code>186.51</code> ≤ entry <code>187.75</code> ✓ &nbsp;and&nbsp; its own High <code>193.61</code> ≥ TP <code>191.20</code> ✓.<br>
+        → cell <code>AA8</code> books a <b style="color:var(--red)">same-day win of +$1,836.32</b> (+$3.45/sh × 532 sh).
       </div>
     </div>
     <div class="card">
@@ -118,11 +118,29 @@
   </div>
   <div class="card" style="margin-top:14px">
     <h3 style="margin-top:2px">The order of events makes the "win" impossible</h3>
-    <div class="step"><div class="n">1</div><div><b>09:30 — High 193.61.</b> Price spikes above the TP (191.22) <i>at the open</i>. But you have <b>no position yet</b> — your buy sits down at 187.72.</div></div>
-    <div class="step"><div class="n">2</div><div><b>11:25 — Low 187.24.</b> Price finally falls to your entry and the long <b>fills at 187.72</b> — almost two hours <i>after</i> the high that the daily model used as the "win".</div></div>
-    <div class="step"><div class="n">3</div><div><b>After the fill, the high is only 190.53.</b> The TP (191.22) is <b style="color:var(--red)">never reached again</b>. Price keeps sliding.</div></div>
-    <div class="step"><div class="n">4</div><div><b>16:00 — Close 186.93.</b> The real outcome is a <b style="color:var(--red)">loss of ≈ −$0.79/share</b>, not a +$3.50 win. The daily model was off by <b>$4.29/share</b> on this one trade.</div></div>
-    <p class="small" style="margin-top:6px"><span class="tag">Takeaway:</span> a daily bar only knows the day's high and low — not which came first. The strategy's "same-day wins" repeatedly bank a high that occurred <i>before</i> the entry could fill. That is the single biggest reason +26.8% becomes +4.4%.</p>
+    <div class="step"><div class="n">1</div><div><b>09:30 — High 193.61.</b> Price spikes above the TP (191.20) <i>at the open</i>. But you have <b>no position yet</b> — your buy sits down at 187.75.</div></div>
+    <div class="step"><div class="n">2</div><div><b>11:25 — price falls to your entry.</b> The long <b>fills at 187.75</b> — almost two hours <i>after</i> the high the Excel row used as its "win".</div></div>
+    <div class="step"><div class="n">3</div><div><b>After the fill, the high is only 190.53.</b> The TP (191.20) is <b style="color:var(--red)">never reached again</b>. Price keeps sliding.</div></div>
+    <div class="step"><div class="n">4</div><div><b>16:00 — Close 186.94.</b> The real outcome is a <b style="color:var(--red)">loss of ≈ −$0.81/share</b>, not the +$3.45 win in cell AA8. The Excel was off by <b>$4.26/share</b> on this single trade.</div></div>
+    <p class="small" style="margin-top:6px"><span class="tag">Takeaway:</span> a daily bar only knows the day's high and low — not which came first. The Excel's "same-day wins" repeatedly bank a high that occurred <i>before</i> the entry could fill. That is the single biggest reason +26.8% becomes +4.4%.</p>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <h3 style="margin-top:2px">It's not a one-off — 8 of the Excel's 13 claimed wins are the same illusion</h3>
+    <p class="small">Every Excel <code>Buy</code>-tab row with a same-day "win", cross-checked against IBKR 5-minute bars. In all 8 below, the take-profit was touched at/near the <b>open</b> — then the long didn't fill until <b>hours later</b>, and the TP was never reached again:</p>
+    <table>
+      <tr><th>Excel date</th><th class="num">Claimed $ (cell AA)</th><th class="num">"TP hit" at</th><th class="num">Entry actually filled</th></tr>
+      <tr><td>2026-02-12</td><td class="num neg">$1,836</td><td class="num">09:30</td><td class="num">11:25</td></tr>
+      <tr><td>2026-03-13</td><td class="num neg">$1,906</td><td class="num">09:30</td><td class="num">11:45</td></tr>
+      <tr><td>2026-03-30</td><td class="num neg">$2,087</td><td class="num">09:30</td><td class="num">14:50</td></tr>
+      <tr><td>2026-04-23</td><td class="num neg">$1,722</td><td class="num">09:45</td><td class="num">13:05</td></tr>
+      <tr><td>2026-05-01</td><td class="num neg">$1,748</td><td class="num">09:30</td><td class="num">10:35</td></tr>
+      <tr><td>2026-05-04</td><td class="num neg">$1,758</td><td class="num">09:30</td><td class="num">11:15</td></tr>
+      <tr><td>2026-05-05</td><td class="num neg">$1,757</td><td class="num">09:30</td><td class="num">15:30</td></tr>
+      <tr><td>2026-05-18</td><td class="num neg">$1,546</td><td class="num">09:30</td><td class="num">10:25</td></tr>
+      <tr><td><b>Total</b></td><td class="num neg"><b>≈$14,360</b></td><td class="num" colspan="2">of the $23,639 the Excel booked as same-day wins</td></tr>
+    </table>
+    <p class="small mut">(The other 5 of 13 are genuine — the TP was reached <i>after</i> the entry filled. Those carry into the +4.4% realistic result.)</p>
   </div>
 
   <!-- HOW IT WORKS -->
@@ -198,14 +216,14 @@
   </div>
 
   <div class="foot">
-    Sources: <code>Strategy Relevant/Copy of Stock - Strategy 1 and 2 (share).xlsx</code> · IBKR daily + 5-min · validated engine in this repo (<code>reports/excel-strategy-analysis.md</code> for the full write-up). Example trade: NVDA 2026-02-12, 5-min RTH bars. All figures out-of-sample where noted.
+    Sources: <code>Strategy Relevant/Copy of Stock - Strategy 1 and 2 (share).xlsx</code> · IBKR daily + 5-min · validated engine in this repo (<code>reports/excel-strategy-analysis.md</code> for the full write-up). Example: Excel <code>Buy</code> tab row 8 / cell AA8 (NVDA 2026-02-12); the 13 claimed wins cross-checked against IBKR 5-min RTH bars (8 fabricated). All figures out-of-sample where noted.
   </div>
 </div>
 
 <script>
 (function(){
   const path=[{t:"09:30",c:192.16},{t:"09:45",c:191.63},{t:"10:00",c:191.13},{t:"10:15",c:191.31},{t:"10:30",c:190.94},{t:"10:45",c:190.11},{t:"11:00",c:189.42},{t:"11:15",c:189.07},{t:"11:30",c:187.92},{t:"11:45",c:189.15},{t:"12:00",c:189.67},{t:"12:15",c:188.95},{t:"12:30",c:190.13},{t:"12:45",c:189.96},{t:"13:00",c:189.19},{t:"13:15",c:188.59},{t:"13:30",c:189.19},{t:"13:45",c:189.43},{t:"14:00",c:189.65},{t:"14:15",c:189.64},{t:"14:30",c:189.14},{t:"14:45",c:189.10},{t:"15:00",c:188.22},{t:"15:15",c:187.82},{t:"15:30",c:187.46},{t:"15:45",c:187.60},{t:"15:55",c:186.93}];
-  const TP=191.22, ENTRY=187.72, PREV=190.05, HIGH=193.61, CLOSE=186.93;
+  const TP=191.20, ENTRY=187.75, PREV=190.05, HIGH=193.61, CLOSE=186.94;
   const W=760,H=340,padL=46,padR=140,padT=30,padB=34;
   const ymin=185.5,ymax=194.2, n=path.length;
   const X=i=>padL+(i/(n-1))*(W-padL-padR);
@@ -221,9 +239,9 @@
   // shaded zones
   svg.appendChild(el("rect",{x:padL,y:Y(ymax),width:W-padL-padR,height:Y(TP)-Y(ymax),fill:"#34d399",opacity:.06}));
   svg.appendChild(el("rect",{x:padL,y:Y(ENTRY),width:W-padL-padR,height:Y(ymin)-Y(ENTRY),fill:"#60a5fa",opacity:.06}));
-  refline(TP,"#34d399","TP 191.22");
+  refline(TP,"#34d399","TP 191.20");
   refline(PREV,"#9fb0c9","prev close 190.05","2 4");
-  refline(ENTRY,"#60a5fa","entry 187.72");
+  refline(ENTRY,"#60a5fa","entry 187.75");
   // price polyline
   let d="";path.forEach((p,i)=>{d+=(i?"L":"M")+X(i).toFixed(1)+" "+Y(p.c).toFixed(1)+" ";});
   svg.appendChild(el("path",{d:d,fill:"none",stroke:"#e8edf6","stroke-width":2.2}));
@@ -235,7 +253,7 @@
   let t2=el("text",{x:FILLX+8,y:Y(ENTRY)+16,fill:"#60a5fa","font-size":12,"font-weight":700});t2.textContent="11:25 long fills here";svg.appendChild(t2);
   // marker: close
   svg.appendChild(el("circle",{cx:X(n-1),cy:Y(CLOSE),r:5,fill:"#f87171"}));
-  let t3=el("text",{x:X(n-1)-12,y:Y(CLOSE)+18,fill:"#f87171","font-size":12,"font-weight":700,"text-anchor":"end"});t3.textContent="16:00 close 186.93 = loss";svg.appendChild(t3);
+  let t3=el("text",{x:X(n-1)-12,y:Y(CLOSE)+18,fill:"#f87171","font-size":12,"font-weight":700,"text-anchor":"end"});t3.textContent="16:00 close 186.94 = loss";svg.appendChild(t3);
   // x labels (a few)
   [0,6,12,18,26].forEach(i=>{const tx=el("text",{x:X(i),y:H-12,fill:"#9fb0c9","font-size":11,"text-anchor":"middle"});tx.textContent=path[i].t;svg.appendChild(tx);});
 })();
