@@ -57,8 +57,10 @@ def _report_range(pooled, splits):
     print(f"  EWMA baseline   MAE={r['ewma_mae']:.4f}  R2={r['ewma_r2']:+.4f}")
     print(f"  mean baseline   MAE={r['mean_mae']:.4f}")
     gain = (r["ewma_mae"] - r["model_mae"]) / r["ewma_mae"] * 100
-    verdict = "SIGNAL beyond persistence" if r["model_mae"] < r["ewma_mae"] \
-        else "NO signal beyond persistence"
+    # vol clusters, so EWMA persistence already explains most range; only call
+    # it incremental SIGNAL if features beat persistence by a real margin (>1%).
+    verdict = "SIGNAL beyond persistence" if gain > 1.0 \
+        else "persistence only (features add ~nothing)"
     print(f"  -> model vs EWMA: {gain:+.1f}% MAE  => {verdict}")
 
 
