@@ -122,6 +122,15 @@ def fetch_ohlc(symbol: str, days: int, *, end_date=None, use_cache: bool = True)
     return _df_to_bars(df)
 
 
+def read_daily_cache(symbol: str, days: int, end_tag: str = "now") -> list[OhlcBar] | None:
+    """Read a previously-cached daily parquet directly, ignoring the TTL.
+    Returns None if absent. Lets analysis run with the gateway down."""
+    cache_file = CACHE_DIR / f"{symbol.strip().upper()}_{days}d_{end_tag}.parquet"
+    if not cache_file.exists():
+        return None
+    return _df_to_bars(pd.read_parquet(cache_file))
+
+
 def _df_to_bars(df: pd.DataFrame) -> list[OhlcBar]:
     bars: list[OhlcBar] = []
     for _, row in df.iterrows():
