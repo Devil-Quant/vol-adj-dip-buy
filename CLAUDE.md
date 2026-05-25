@@ -47,22 +47,33 @@ NVDA Buy with these defaults on the spreadsheet's 2026-05-15 snapshot:
 If my engine outputs differ materially (>$1k on $100k or wrong counts), the
 strategy implementation is wrong.
 
-## Current state (2026-05-20)
-- Four /done-verified contracts: vol-adj-dip-buy (build), ibkr-data-tv-forward
-  (data swap), intraday-resolution-backtest (5-min realism), optimize-tp-sl
-  (optimizer + OOS/walk-forward/Monte-Carlo). 38 pytest tests passing.
-- **Data: IBKR (paper 4002) for backtest. yfinance BANNED. Forward exec = Jeff's
-  MCP server (details still pending).**
-- **Realism finding (NVDA buy, 69d):** daily model +$19,942 (19.9%) vs
-  intraday-realistic +$4,364 (4.4%) — ~78% cut; 6 of 12 same-day wins were
-  sequencing artifacts; stops gap through. Daily ~matches Excel tic-for-tic.
-- **IN PROGRESS — TP/SL optimization:** pipeline built + verified; 10-name
-  subset 2yr 5-min data was FETCHING when the session paused (3/10 cached).
-  RESUME: re-run `python scripts/fetch_history.py data/symbols_opt.txt --years 2`
-  (cached symbols skip), then `python scripts/optimize.py data/symbols_opt.txt
-  --years 2`. Optimizes TP/SL per side, reward<=3x risk, with OOS + walk-forward
-  + Monte-Carlo verdict. NO RESULTS YET.
-- Reference episodes: exp-20260519-018/027/028/033/034/035, exp-20260520-001.
+## Current state (2026-05-25) — STRATEGY FAMILY REJECTED; pivoted to forecasting research
+- **The Excel dip-buy / pop-short (and an OCO-fade variant) has NO real edge.** Proven:
+  - **Daily-bar fill illusion:** the sheet books fills + same-day TPs on daily bars,
+    assuming an intraday order that often didn't happen. NVDA Buy +26.8% (Excel) ->
+    +19.9% (faithful daily) -> **+4.4% (realistic 5-min)**, ~78-84% cut.
+  - **Diluted beta, not alpha:** realistic P&L is a fraction of buy-and-hold (NVDA
+    turned B&H +21.5% into +4.4%; 10-name set realistic +9% vs B&H +58.7%). "All
+    symbols positive" = melt-up, not edge.
+  - **Optimization (no RR cap) overfits BOTH sides:** buy optimal sigma1.0/TP2.0/stop3.0
+    +$486k IS but OOS -$136k, MC OOS 24%; short loses at EVERY param (best -$1.04M, MC
+    0%). Entry also optimized (1sigma already optimal; wide 0.25-2.5 grid confirms).
+  - Validation audited end-to-end (OOS / walk-forward / Monte-Carlo) in methodology.html.
+- **Same-day-win nuance (Jeff-corrected, exp-20260522-053):** of NVDA's 13 claimed
+  same-day wins, 8 mislabeled — but held to resolution 7 were still TP-wins (1-3d
+  later), 1 stop. Across 18 tickers 30 of 212 (~14%) became losses. It's a TIMING
+  error, NOT fabricated profit.
+- **Forecasting pivot:** built `forecast/` harness (features/targets/walkforward/implied).
+  Daily VOLATILITY is forecastable (SPY range R2~0.61) but ~all EWMA persistence; beats
+  30d VIX +11.7% but that's the WRONG benchmark (need VIX1D/0DTE). DIRECTION not
+  forecastable (AUC~0.50). Thesis: "predict the cloud, not the dot."
+- **Dashboards (`reports/`, served on :8753):** dashboard.html (Excel review),
+  screened-momentum-dashboard.html (audited an external ChatGPT backtest of the same
+  strategy = same diluted-beta verdict), methodology.html (validation audit + charts).
+- 49 pytest tests passing. Data: IBKR cached (daily 620d; 5-min 2yr for 10 opt + 8
+  movers; SPY + VIX 15yr daily). yfinance BANNED.
+- Reference episodes: exp-20260522-012/013/022/042/044/047/049/053/057/058,
+  exp-20260523-003/004.
 
 ## How to use
 ```powershell
@@ -74,18 +85,27 @@ python scripts/backtest_many.py data/symbols.txt --days 100
 python scripts/todays_signals.py data/symbols.txt
 # sanity-check against the Excel NVDA Buy reference
 python scripts/validate_against_excel.py
+# daily forecastability harness (vol + direction vs naive baselines)
+python scripts/forecast_report.py
+# SPY range forecast vs VIX implied (horse race)
+python scripts/implied_vol_report.py
+# serve the dashboards -> open http://localhost:8753/dashboard.html
+python -m http.server 8753 --bind 127.0.0.1 --directory reports
 ```
 
 ## Next steps
-1. **Finish the optimization run** (data fetch was interrupted at 3/10) —
-   re-fetch then `scripts/optimize.py`; report per-side TP/SL + OOS/WF/MC.
-2. **Expand to the full Excel watchlist** (data/symbols.txt) once the subset
-   result looks robust.
-3. **MCP executor** (forward/executor.py) — BLOCKED on Jeff providing: MCP
-   server launch command, broker, and order tools (place / bracket-OCO /
-   cancel / positions / balance). Forward test = real orders via MCP.
-4. Finviz screener integration (auto-build the watchlist from wedge-up/-down).
-5. Sector ETF correlation filter (Lookup Table maps each ticker -> SPDR_ETF).
+1. **(Open loop, approved) VIX1D / 0-DTE straddle P&L test** — is the vol forecast a
+   real trade? Benchmark vs VIX1D (1-day implied), target |close-open| (what a straddle
+   pays), simulate straddle P&L net of bid/ask. Beating a stat baseline isn't alpha;
+   must beat the tradeable implied after costs.
+2. **(Open loop) Screened small-cap / range-bound universe** — the Finviz-wedge universe
+   the dip-buy/fade was actually designed for, never run end-to-end. The one regime where
+   a fade could plausibly work.
+3. **Aim the vol-forecast machinery where MMs are weak** (crypto vol/DVOL, prediction
+   markets), NOT SPX — edges live in inefficient venues, not the most-competed one.
+4. **MCP executor** (forward/executor.py) — BLOCKED on Jeff providing MCP server launch
+   command, broker, and order tools (place / bracket-OCO / cancel / positions / balance).
+5. Finviz screener + sector-ETF filter — lower priority given the strategy rejection.
 
 ## Operational notes
 - IB Gateway logs out daily; needs re-login + API enabled on 4002 each session.
