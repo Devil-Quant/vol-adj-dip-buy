@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Validation Methodology — Audit Report</title>
+<style>
+  :root{--bg:#0f1420;--card:#171e2e;--card2:#1d2740;--ink:#e8edf6;--mut:#9fb0c9;
+    --line:#2a3550;--green:#34d399;--red:#f87171;--amber:#fbbf24;--blue:#60a5fa;--accent:#818cf8;}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1000px;margin:0 auto;padding:32px 22px 80px}
+  h1{font-size:29px;margin:0 0 6px} h2{font-size:21px;margin:38px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+  h3{font-size:16px;margin:18px 0 8px} p{color:var(--mut);margin:8px 0}
+  .sub{color:var(--mut);margin-top:0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin:14px 0}
+  .badge{display:inline-block;font-weight:700;font-size:12px;letter-spacing:.5px;text-transform:uppercase;padding:4px 10px;border-radius:999px}
+  .b-green{background:rgba(52,211,153,.16);color:var(--green)} .b-red{background:rgba(248,113,113,.16);color:var(--red)}
+  .b-blue{background:rgba(96,165,250,.16);color:var(--blue)} .b-amber{background:rgba(251,191,36,.16);color:var(--amber)}
+  code{background:#0c1322;padding:2px 6px;border-radius:5px;color:#cdd9f0;font-size:13px}
+  pre{background:#0b0f1a;border:1px solid var(--line);border-radius:10px;padding:14px 16px;overflow-x:auto;font-size:12.5px;line-height:1.5;color:#cdd9f0}
+  pre .c{color:#6b7a99} pre .k{color:#c792ea} pre .s{color:#c3e88d}
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)} th{color:var(--mut);font-size:12px;text-transform:uppercase}
+  td.num{text-align:right;font-variant-numeric:tabular-nums} .neg{color:var(--red)} .pos{color:var(--green)}
+  img{width:100%;border:1px solid var(--line);border-radius:10px;margin:10px 0;background:#171e2e}
+  .mut{color:var(--mut)} .small{font-size:13px}
+  .callout{background:var(--card2);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:12px 16px;margin:12px 0}
+  .callout.green{border-left-color:var(--green)} .callout.red{border-left-color:var(--red)} .callout.amber{border-left-color:var(--amber)}
+  ul{color:var(--mut);padding-left:20px} li{margin:5px 0}
+  .step{display:flex;gap:12px;margin:9px 0;align-items:flex-start}
+  .step .n{flex:0 0 24px;height:24px;border-radius:50%;background:var(--card2);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:var(--accent)}
+  .tag{color:var(--accent);font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Validation Methodology — Audit Report</h1>
+  <p class="sub">How the out-of-sample, walk-forward, and Monte-Carlo tests are actually computed — the math, the code, the process, and the graphs. Worked on the optimized buy combo. <span class="mut">2026-05-25</span></p>
+
+  <div class="card">
+    <span class="badge b-blue">What is being validated</span>
+    <p>The buy-side optimizer's winner: <b>σ-entry 1.0 · TP 2.0σ · stop 3.0σ</b>, run on <b>10 names × 2 years of 5-minute bars</b> (2024-05-20 → 2026-05-20, 459 trading days, $100k/trade). Full-window it makes <b>+$485,934</b> across 2,253 trades. The question this report answers: <i>is that real, or fit to the past?</i></p>
+  </div>
+
+  <!-- DESIGN -->
+  <h2>0 · The anti-leakage design (why the numbers can be trusted)</h2>
+  <p>The single most important safeguard: <b>each parameter combo is simulated ONCE over the full history, and every trade is tagged with its entry date.</b> The OOS / walk-forward / Monte-Carlo steps then just <b>select subsets of those already-computed trades by date</b> — they never re-run the engine. That makes look-ahead structurally impossible: a trade's outcome is fixed before any window is drawn.</p>
+  <div class="step"><div class="n">1</div><div><b>Trailing volatility.</b> σ at each entry is the stdev of the prior <b>100 days'</b> High−Low range — only past data. No whole-period σ leak.</div></div>
+  <div class="step"><div class="n">2</div><div><b>Realistic fills.</b> Each trade is resolved on 5-minute bars: entry must trade to the limit, TP/stop are first-touch in time order, stops gap. (This is the engine that erased the daily-bar illusion.)</div></div>
+  <div class="step"><div class="n">3</div><div><b>Date-tagged trades.</b> <code>TradeRec(sym, entry_date, pnl, win, still_open)</code> — windows are pure filters on <code>entry_date</code>. Open trades are excluded from every total.</div></div>
+
+  <!-- OOS -->
+  <h2>1 · Out-of-sample (OOS)</h2>
+  <p><b>The idea:</b> optimize on the first 70% of the timeline, then test the chosen parameters <b>exactly once</b> on the untouched final 30%. If the edge is real it persists; if it was fit to noise, it dies.</p>
+  <h3>The math</h3>
+  <p>Sort the unique dates. Split at index <code>⌊0.70 × N⌋</code> → split date <b>2025-10-22</b>. Pick the combo with the highest <i>realized</i> P&amp;L over <code>[start, split]</code>. Apply that one combo to <code>(split, end]</code> and record its P&amp;L. No re-optimization on the test set.</p>
+  <h3>The actual code (<code>backtest/validation.py</code>)</h3>
+  <pre><span class="k">def</span> oos_evaluate(grid, frac=0.7):
+    dates = date_axis(grid)
+    split = dates[<span class="k">int</span>(<span class="k">len</span>(dates) * frac)]
+    is_best, _ = best_combo(grid, start=dates[0], end=split)   <span class="c"># optimize on IS only</span>
+    key = (is_best.limit_mult, is_best.stop_mult)
+    oos = window_stats(*key, grid[key], start=_next(split), end=dates[-1])  <span class="c"># test ONCE, held-out</span>
+    <span class="k">return</span> {<span class="s">"split_date"</span>: split, <span class="s">"is"</span>: is_best, <span class="s">"oos"</span>: oos}</pre>
+  <h3>The result</h3>
+  <table>
+    <tr><th>Window</th><th>Chosen combo</th><th class="num">P&amp;L</th></tr>
+    <tr><td>In-sample (to 2025-10-22)</td><td>TP 2.0σ / stop 3.0σ</td><td class="num pos">+$622,259</td></tr>
+    <tr><td>Out-of-sample (held-out)</td><td>same combo</td><td class="num neg">−$136,326</td></tr>
+  </table>
+  <img src="figs/equity.png" alt="IS/OOS equity curve"/>
+  <p class="small">The green in-sample equity climbs steadily; the moment the held-out period begins (dashed line), the <span style="color:var(--red)">red</span> curve rolls over. The combo that printed +$622k on the data it was chosen from <b>lost $136k</b> on the data it had never seen.</p>
+
+  <!-- WALK FORWARD -->
+  <h2>2 · Walk-forward</h2>
+  <p><b>The idea:</b> one split could be lucky. Walk-forward repeats the IS→OOS test in a rolling fashion across the whole timeline, re-picking the best combo on each <b>180-day</b> in-sample window and trading it on the <b>next 60 days</b> it hasn't seen, stepping forward 60 days at a time. Stitching the OOS pieces together is the <b>honest track record</b> — what you'd actually have earned re-tuning as you go.</p>
+  <h3>The actual code</h3>
+  <pre><span class="k">def</span> walk_forward(grid, is_days=180, oos_days=60, step_days=60):
+    cur = start
+    <span class="k">while</span> is_end &lt; end:
+        best, _ = best_combo(grid, start=cur, end=is_end)            <span class="c"># pick on IS window</span>
+        oos = window_stats(*best.key, grid, start=is_end+1, end=oos_end)  <span class="c"># trade next OOS window</span>
+        oos_pnls += closed_pnls(grid[best.key], is_end+1, oos_end)   <span class="c"># collect the honest record</span>
+        cur += step_days</pre>
+  <h3>The result</h3>
+  <p>Stitched out-of-sample P&amp;L across all folds: <b class="neg">−$125,493</b>. The blue bars (what each fold looked like in-sample) are positive; the red bars (what it actually did on the next, unseen window) are mostly negative.</p>
+  <img src="figs/walkforward.png" alt="walk-forward folds"/>
+
+  <!-- MONTE CARLO -->
+  <h2>3 · Monte-Carlo bootstrap</h2>
+  <p><b>The idea:</b> the single P&amp;L number could hinge on a handful of lucky trades. Bootstrapping asks: if you reshuffled the <i>same</i> trades (resampling with replacement), how often would you still profit? It turns one P&amp;L into a <b>distribution</b> and a <b>probability of profit</b>.</p>
+  <h3>The math</h3>
+  <p>Given the list of trade P&amp;Ls (length <code>k</code>): draw <code>k</code> of them <b>with replacement</b>, sum to one simulated total; repeat <b>2,000</b> times (fixed seed 42 for reproducibility). <code>P(profit)</code> = fraction of the 2,000 totals that are &gt; 0.</p>
+  <h3>The actual code</h3>
+  <pre><span class="k">def</span> monte_carlo(pnls, n=2000, seed=42):
+    rng = random.Random(seed); k = <span class="k">len</span>(pnls)
+    <span class="k">for</span> _ <span class="k">in</span> <span class="k">range</span>(n):
+        sample = [pnls[rng.randrange(k)] <span class="k">for</span> _ <span class="k">in</span> <span class="k">range</span>(k)]  <span class="c"># resample WITH replacement</span>
+        totals.append(<span class="k">sum</span>(sample))
+    prob_profit = <span class="k">sum</span>(1 <span class="k">for</span> t <span class="k">in</span> totals <span class="k">if</span> t &gt; 0) / n</pre>
+  <h3>The result</h3>
+  <table>
+    <tr><th>Trade set</th><th class="num">P(profit)</th><th class="num">median total</th><th class="num">5th-pctile</th></tr>
+    <tr><td>Full period (incl. the bull run)</td><td class="num">92%</td><td class="num pos">+$505,937</td><td class="num neg">−$64,458</td></tr>
+    <tr><td><b>Out-of-sample only</b></td><td class="num neg"><b>24%</b></td><td class="num neg">−$137,174</td><td class="num neg">—</td></tr>
+  </table>
+  <img src="figs/montecarlo.png" alt="Monte-Carlo histograms"/>
+  <p class="small">Left (green) = the full period: 92% of reshuffles profit — but that includes the two-year rally. Right (red) = out-of-sample only: just <b>24%</b> of reshuffles profit, median <b>−$137k</b>. The yellow line is break-even. The forward distribution sits mostly on the losing side.</p>
+
+  <!-- SURFACE -->
+  <h2>4 · The optimization surface (why "best" is a mirage)</h2>
+  <p>The clearest picture of overfitting: the heatmap of P&amp;L across the TP × stop grid, in-sample vs out-of-sample. In-sample there's a clean bright peak at TP2.0/stop3.0 — the combo the optimizer chose. Out-of-sample that same cell is red, and the whole surface rearranges. The "peak" was a feature of the past, not the future.</p>
+  <img src="figs/heatmap.png" alt="IS vs OOS grid heatmaps"/>
+
+  <!-- REPRODUCE -->
+  <h2>5 · How to reproduce this</h2>
+  <p>All three validators live in <code>backtest/validation.py</code> and operate on the date-tagged grid from <code>backtest/optimizer.run_grid</code>. The numbers and every figure above were produced from the cached IBKR data in this repo (no network needed):</p>
+  <pre><span class="c"># build the grid (each combo simulated once, trades date-tagged)</span>
+grid = run_grid(symbols_data, <span class="s">"buy"</span>, TP_grid, stop_grid, sigma_mult=1.0, order_size=100000, max_rr=999)
+oos_evaluate(grid)          <span class="c"># -> IS +$622,259  ->  OOS -$136,326</span>
+walk_forward(grid)          <span class="c"># -> stitched OOS -$125,493</span>
+monte_carlo(closed_pnls(grid[(2.0,3.0)]))  <span class="c"># -> P(profit) 92% full / 24% OOS</span></pre>
+
+  <div class="callout green">
+    <b>Why you can trust these:</b> (1) trades are simulated once and frozen with their entry dates, so a test window cannot leak into the training window; (2) σ uses only trailing data; (3) the OOS set is touched exactly once; (4) the bootstrap is the standard resample-with-replacement, fixed-seed so it reproduces bit-for-bit. The three methods are independent and all point the same way.
+  </div>
+  <div class="callout red">
+    <b>What they say:</b> the +$486k optimum is real <i>only on the data it was fit to</i>. Out-of-sample it loses (−$136k), walk-forward loses (−$125k stitched), and the forward Monte-Carlo is a 24%-to-profit coin that lands on "lose" 3 times out of 4. The optimization found the most long-beta corner of the grid and fit it to a melt-up — exactly what robust validation is designed to catch.
+  </div>
+
+  <div class="small mut" style="margin-top:24px;border-top:1px solid var(--line);padding-top:14px">
+    Code: <code>backtest/validation.py</code>, <code>backtest/optimizer.py</code>. Data: IBKR daily + 5-min, 10 names, 2024-05-20→2026-05-20. Figures generated with matplotlib from the same run. Companion to <code>reports/dashboard.html</code>.
+  </div>
+</div>
+</body>
+</html>
