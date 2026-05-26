@@ -234,3 +234,43 @@ def test_fade_no_touch_no_fill():
     bars = [rth(D0, 9, 30, 100, 100.5, 99.5, 100)]     # never reaches 99 or 101
     t = fade(bars)
     assert t.filled is False
+
+
+def test_run_backtest_intraday_allow_by_day_passthrough():
+    """End-to-end: run_backtest_intraday honors `allow_by_day`. The same
+    fixture with the gate disabled produces a fill; with the gate False on
+    the signal day produces zero filled trades."""
+    from clients import OhlcBar
+    from config.settings import StrategyParams
+    from backtest.engine import run_backtest_intraday
+
+    d0 = date(2026, 3, 2)
+    d1 = date(2026, 3, 3)
+    d2 = date(2026, 3, 4)
+    # Daily: prev_close=100 on d1 -> signal day d2; sigma derives from H-L
+    # spreads (~2). With sigma_mult=1, limit_mult=0.5, stop_mult=3:
+    # entry ~98, tp ~101, stop ~92. d2's intraday hits entry and tp same day.
+    daily = [
+        OhlcBar(d=d0, open=100, high=101, low=99, close=100),
+        OhlcBar(d=d1, open=100, high=101, low=99, close=100),
+        OhlcBar(d=d2, open=100, high=101, low=99, close=100),
+    ]
+    # d2 intraday: dip to 97 (fills entry ~98), then rallies to 102 (hits tp)
+    intra = [
+        rth(d2, 9, 30, 100, 100.2, 97.0, 99.0),
+        rth(d2, 9, 35, 99.0, 102.0, 99.0, 101.5),
+    ]
+    p = StrategyParams(side="buy", sigma_mult=1.0, limit_mult=0.5, stop_mult=3.0,
+                       lookback_days=20, holding_window=20, holding_max=24,
+                       order_size_usd=100_000.0)
+
+    # Without gate: should produce a filled trade on d2
+    r1 = run_backtest_intraday("X", daily, intra, p)
+    filled_dates = [t.entry_date for t in r1.trades if t.filled]
+    assert d2 in filled_dates, "expected fill on signal day"
+
+    # With gate False on d2: zero trades on d2
+    r2 = run_backtest_intraday("X", daily, intra, p,
+                               allow_by_day={d2: False})
+    assert all(t.entry_date != d2 for t in r2.trades if t.filled), \
+        "gate should have blocked the d2 fill"
