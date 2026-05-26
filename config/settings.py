@@ -42,6 +42,14 @@ SL_GRID = (0.5, 1.0, 1.5, 2.0, 2.5, 3.0)
 MAX_RR = 3.0            # reward <= 3x risk: (sigma_mult + limit_mult) <= 3 * stop_mult
 SIGMA_LOOKBACK = 100    # trailing daily bars for per-entry sigma (walk-forward safe)
 
+# Markov 3-state regime gate (forecast/markov.py). State at day k uses the
+# trailing-MARKOV_LOOKBACK return: r >= BULL -> bull, r <= BEAR -> bear, else
+# sideways. The gate's allow-decision for day X uses data <= day X-1 only.
+MARKOV_LOOKBACK = 20
+MARKOV_BULL_THRESHOLD = 0.05
+MARKOV_BEAR_THRESHOLD = -0.05
+MARKOV_GATE_THETA = 0.0   # gate fires when (P_bull - P_bear) > theta
+
 
 DEFAULT_BUY = StrategyParams(
     side="buy",
