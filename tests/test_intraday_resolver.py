@@ -247,18 +247,18 @@ def test_run_backtest_intraday_allow_by_day_passthrough():
     d0 = date(2026, 3, 2)
     d1 = date(2026, 3, 3)
     d2 = date(2026, 3, 4)
-    # Daily: prev_close=100 on d1 -> signal day d2; sigma derives from H-L
-    # spreads (~2). With sigma_mult=1, limit_mult=0.5, stop_mult=3:
-    # entry ~98, tp ~101, stop ~92. d2's intraday hits entry and tp same day.
+    # Daily: prev_close=100 on d1 -> signal day d2. The H-L spreads vary
+    # (1, 3, 2) so stdev>0; whole-window sigma ~= 1.0. With sigma_mult=1,
+    # limit_mult=0.5, stop_mult=3: entry ~99, tp ~100.5, stop ~96.
     daily = [
-        OhlcBar(d=d0, open=100, high=101, low=99, close=100),
-        OhlcBar(d=d1, open=100, high=101, low=99, close=100),
-        OhlcBar(d=d2, open=100, high=101, low=99, close=100),
+        OhlcBar(d=d0, open=100, high=100.5, low=99.5, close=100),    # H-L = 1
+        OhlcBar(d=d1, open=100, high=102.0, low=99.0, close=100),    # H-L = 3
+        OhlcBar(d=d2, open=100, high=101.0, low=99.0, close=100),    # H-L = 2
     ]
-    # d2 intraday: dip to 97 (fills entry ~98), then rallies to 102 (hits tp)
+    # d2 intraday: dip to 98.5 (fills entry ~99), then rallies to 101 (hits tp)
     intra = [
-        rth(d2, 9, 30, 100, 100.2, 97.0, 99.0),
-        rth(d2, 9, 35, 99.0, 102.0, 99.0, 101.5),
+        rth(d2, 9, 30, 100, 100.2, 98.5, 99.5),
+        rth(d2, 9, 35, 99.5, 101.0, 99.0, 100.8),
     ]
     p = StrategyParams(side="buy", sigma_mult=1.0, limit_mult=0.5, stop_mult=3.0,
                        lookback_days=20, holding_window=20, holding_max=24,
