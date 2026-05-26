@@ -38,6 +38,46 @@ tests/         pytest fixtures + unit tests for each exit path
 data/          cached OHLC + run outputs
 ```
 
+## Setup (first time / new collaborator)
+
+This repo is safe to share. **All secrets live in your local `.env`, never in
+git.** Each person uses their own IBKR paper credentials — no one ever shares
+API keys or broker accounts.
+
+```bash
+git clone <this-repo-url>
+cd "Volatility Adjusted Dip-Buying System"
+python -m venv .venv
+.venv\Scripts\activate                # Windows  (use: source .venv/bin/activate on mac/linux)
+python -m pip install -r requirements.txt
+copy .env.example .env                # Windows  (use: cp .env.example .env on mac/linux)
+```
+
+Then open `.env` in an editor and set:
+
+- `IBKR_HOST` / `IBKR_PORT` — your local paper Gateway (defaults: `127.0.0.1` / `4002`)
+- `IBKR_CLIENT_ID` — any unused integer (the connection ID for your session)
+- (`ORDER_SIZE_USD`, `LOOKBACK_DAYS` are optional; defaults match the Excel sheet)
+
+You need your **own** Interactive Brokers paper account (free, ~15-min signup at
+interactivebrokers.com) and your own running IB Gateway. Same rule for any
+other broker/API used elsewhere in our wider codebase: **each collaborator brings
+their own keys — we share only code.**
+
+Verify the install:
+
+```bash
+pytest tests/ -q                          # all 49 should pass
+python scripts/validate_against_excel.py  # sanity-checks the engine vs the Excel NVDA Buy row
+```
+
+To view the analysis dashboards locally:
+
+```bash
+python -m http.server 8753 --bind 127.0.0.1 --directory reports
+# then open http://localhost:8753/dashboard.html (and methodology.html, screened-momentum-dashboard.html)
+```
+
 ## Quickstart
 
 Prereqs: IB Gateway (paper) running and logged in, API enabled, port 4002.
