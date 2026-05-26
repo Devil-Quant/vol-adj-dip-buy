@@ -138,3 +138,33 @@ def test_buy_signal_needs_two_bars_for_sigma():
     bars = make_bars((100, 101, 99, 100))  # 1 bar
     with pytest.raises(ValueError):
         buy_signal(bars, PARAMS, "TEST")  # no override -> must fail
+
+
+def test_allow_by_day_blocks_entry():
+    """The regime gate skips disallowed days entirely (no Trade emitted)."""
+    bars = make_bars(
+        (100, 101, 99, 100),     # warmup t=0
+        (100, 101, 98.5, 100),   # t=1: would normally INTRADAY_TP
+        (100, 101, 98.5, 100),   # t=2: also a valid signal day
+    )
+    # Block only t=1; t=2 still allowed.
+    allow = {bars[1].d: False}  # t=2 not in map -> defaults to True
+    trades = simulate_buy(bars, PARAMS, sigma_override=SIGMA, allow_by_day=allow)
+    # Only one trade should fire (on t=2), and no record for t=1.
+    entry_dates = [t.entry_date for t in trades]
+    assert bars[1].d not in entry_dates
+    assert bars[2].d in entry_dates
+    assert len(trades) == 1
+
+
+def test_allow_by_day_none_preserves_behavior():
+    """Default allow_by_day=None must produce identical output to no kwarg."""
+    bars = make_bars(
+        (100, 101, 99, 100),
+        (100, 101, 98.5, 100),
+    )
+    a = simulate_buy(bars, PARAMS, sigma_override=SIGMA)
+    b = simulate_buy(bars, PARAMS, sigma_override=SIGMA, allow_by_day=None)
+    assert len(a) == len(b)
+    assert [(t.entry_date, t.exit_reason) for t in a] == \
+           [(t.entry_date, t.exit_reason) for t in b]
