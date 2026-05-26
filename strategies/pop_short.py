@@ -34,11 +34,12 @@ from strategies.common import hl_spread_stdev
 
 def simulate_short(
     bars: Sequence, params: StrategyParams, *, sigma_override: float | None = None,
-    sigma_by_day: dict | None = None,
+    sigma_by_day: dict | None = None, allow_by_day: dict | None = None,
 ) -> list[Trade]:
     """`sigma_by_day` (entry date -> sigma) gives a rolling/trailing sigma
     (Excel-faithful lookback); days without a sigma are skipped. Default uses
-    one whole-window sigma. See simulate_buy."""
+    one whole-window sigma. `allow_by_day` is the optional regime gate (None =
+    no gating). See simulate_buy."""
     if params.side != "short":
         raise ValueError("simulate_short needs side='short'")
     if len(bars) < 2:
@@ -54,6 +55,8 @@ def simulate_short(
         sig = sigma_by_day.get(today.d) if sigma_by_day is not None else whole
         if sig is None or sig <= 0:
             continue  # insufficient trailing history for this day
+        if allow_by_day is not None and not allow_by_day.get(today.d, True):
+            continue  # regime gate blocks this day
 
         entry_limit = prev_close + params.sigma_mult * sig
         tp_price = entry_limit - params.limit_mult * sig

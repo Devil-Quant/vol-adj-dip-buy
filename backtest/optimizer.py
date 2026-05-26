@@ -50,6 +50,7 @@ def combo_trades(symbols_data: dict, side: str, sigma_mult: float,
         trades = intraday_trades(
             sd["daily"], sd["intraday"], side, sigma_mult, limit_mult, stop_mult,
             order_size, sigma_by_day=sd["sigma_by_day"], day_start=sd["day_start"],
+            allow_by_day=sd.get("allow_by_day"),
         )
         for t in trades:
             if t.filled and t.pnl_usd is not None:
@@ -87,7 +88,8 @@ def combo_trades_daily(symbols_data: dict, side: str, sigma_mult: float,
     recs: list[TradeRec] = []
     for sym, sd in symbols_data.items():
         sby = sd["sigma_by_day"] if trailing else None  # fail loud if missing
-        for t in sim(sd["daily"], params, sigma_by_day=sby):
+        for t in sim(sd["daily"], params, sigma_by_day=sby,
+                     allow_by_day=sd.get("allow_by_day")):
             if not (t.filled and t.pnl_usd is not None):
                 continue
             if start is not None and t.entry_date < start:

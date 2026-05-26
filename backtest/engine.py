@@ -36,9 +36,11 @@ def trailing_sigma_by_day(daily_bars: Sequence, lookback: int) -> dict:
 
 
 def intraday_trades(daily_bars, intraday_bars, side, sigma_mult, limit_mult,
-                    stop_mult, order_size, *, sigma_by_day, day_start) -> list:
+                    stop_mult, order_size, *, sigma_by_day, day_start,
+                    allow_by_day: dict | None = None) -> list:
     """Generate one Trade per signal day using precomputed sigma_by_day +
-    day_start (so the optimizer can reuse them across the TP/SL grid)."""
+    day_start (so the optimizer can reuse them across the TP/SL grid).
+    Optional `allow_by_day`: skip days where the gate is False (None = no gate)."""
     trades = []
     for i in range(1, len(daily_bars)):
         entry_date = daily_bars[i].d
@@ -47,6 +49,8 @@ def intraday_trades(daily_bars, intraday_bars, side, sigma_mult, limit_mult,
         sig = sigma_by_day.get(entry_date)
         if sig is None or sig <= 0:
             continue
+        if allow_by_day is not None and not allow_by_day.get(entry_date, True):
+            continue  # regime gate blocks this day
         entry, tp, stop = compute_levels(side, daily_bars[i - 1].close, sig,
                                          sigma_mult, limit_mult, stop_mult)
         trades.append(resolve_trade(
@@ -58,10 +62,12 @@ def intraday_trades(daily_bars, intraday_bars, side, sigma_mult, limit_mult,
 
 
 def oco_fade_trades(daily_bars, intraday_bars, sigma_mult, tp_mult, stop_mult,
-                    order_size, *, sigma_by_day, day_start) -> list:
+                    order_size, *, sigma_by_day, day_start,
+                    allow_by_day: dict | None = None) -> list:
     """Bidirectional OCO fade per signal day: long at C-sigma_mult*sigma OR short
     at C+sigma_mult*sigma, whichever the price reaches first, resolved with
-    tp_mult/stop_mult. Uses precomputed sigma_by_day + day_start."""
+    tp_mult/stop_mult. Uses precomputed sigma_by_day + day_start.
+    Optional `allow_by_day`: skip days where the gate is False (None = no gate)."""
     trades = []
     for i in range(1, len(daily_bars)):
         entry_date = daily_bars[i].d
@@ -70,6 +76,8 @@ def oco_fade_trades(daily_bars, intraday_bars, sigma_mult, tp_mult, stop_mult,
         sig = sigma_by_day.get(entry_date)
         if sig is None or sig <= 0:
             continue
+        if allow_by_day is not None and not allow_by_day.get(entry_date, True):
+            continue  # regime gate blocks this day
         trades.append(resolve_oco_fade(
             entry_date=entry_date, prev_close=daily_bars[i - 1].close, sigma=sig,
             sigma_mult=sigma_mult, tp_mult=tp_mult, stop_mult=stop_mult,
@@ -127,9 +135,11 @@ def run_backtest(symbol: str, bars: Sequence, params: StrategyParams) -> Backtes
 
 
 def run_backtest_intraday(symbol: str, daily_bars: Sequence, intraday_bars: Sequence,
-                          params: StrategyParams, *, sigma_lookback=None) -> BacktestResult:
+                          params: StrategyParams, *, sigma_lookback=None,
+                          allow_by_day: dict | None = None) -> BacktestResult:
     """Granular 5-min backtest. `sigma_lookback=None` -> whole-window sigma;
-    an int -> trailing sigma over that many prior daily bars (walk-forward safe)."""
+    an int -> trailing sigma over that many prior daily bars (walk-forward safe).
+    Optional `allow_by_day`: skip days where the gate is False (None = no gate)."""
     if len(daily_bars) < 3:
         raise ValueError(f"{symbol}: need >=3 daily bars, got {len(daily_bars)}")
     if not intraday_bars:
@@ -145,7 +155,7 @@ def run_backtest_intraday(symbol: str, daily_bars: Sequence, intraday_bars: Sequ
     trades = intraday_trades(
         daily_bars, intraday_bars, params.side, params.sigma_mult,
         params.limit_mult, params.stop_mult, params.order_size_usd,
-        sigma_by_day=sigma_by_day, day_start=day_start,
+        sigma_by_day=sigma_by_day, day_start=day_start, allow_by_day=allow_by_day,
     )
     result = _new_result(symbol, params, len(daily_bars), whole_sigma, daily_bars)
     _tally(result, trades)

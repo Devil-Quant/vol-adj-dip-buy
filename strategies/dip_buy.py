@@ -34,7 +34,7 @@ from strategies.common import hl_spread_stdev
 
 def simulate_buy(
     bars: Sequence, params: StrategyParams, *, sigma_override: float | None = None,
-    sigma_by_day: dict | None = None,
+    sigma_by_day: dict | None = None, allow_by_day: dict | None = None,
 ) -> list[Trade]:
     """Walk the bar series and produce a Trade per day that had a valid
     signal. Bars must be in chronological order. `bars` length should
@@ -43,7 +43,11 @@ def simulate_buy(
     `sigma_override` injects a known sigma (tests). `sigma_by_day` maps each
     entry date -> sigma for a ROLLING/trailing sigma (the Excel-faithful
     lookback); when given, days without a sigma are skipped. Default (neither
-    set) uses one whole-window sigma."""
+    set) uses one whole-window sigma.
+
+    `allow_by_day` is an optional regime gate: when not None, days for which
+    `allow_by_day.get(date, True)` is False are skipped entirely (no Trade is
+    emitted). Default None preserves prior behavior."""
     if params.side != "buy":
         raise ValueError("simulate_buy needs side='buy'")
     if len(bars) < 2:
@@ -60,6 +64,8 @@ def simulate_buy(
         sig = sigma_by_day.get(today.d) if sigma_by_day is not None else whole
         if sig is None or sig <= 0:
             continue  # insufficient trailing history for this day
+        if allow_by_day is not None and not allow_by_day.get(today.d, True):
+            continue  # regime gate blocks this day
 
         entry_limit = prev_close - params.sigma_mult * sig
         tp_price = prev_close + params.limit_mult * sig
