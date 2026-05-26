@@ -15,20 +15,17 @@ Reads cached daily bars (gateway-free once `fetch_etf_history.py` has run).
 from __future__ import annotations
 
 import argparse
-import dataclasses
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from clients import read_daily_cache  # noqa: E402
-from backtest.engine import run_backtest  # noqa: E402
 from config.settings import (DEFAULT_BUY, MARKOV_BEAR_THRESHOLD,  # noqa: E402
                              MARKOV_BULL_THRESHOLD, MARKOV_GATE_THETA,
                              MARKOV_LOOKBACK)
 from forecast.markov import markov_allow_by_day  # noqa: E402
 from strategies.dip_buy import simulate_buy  # noqa: E402
-from strategies.common import hl_spread_stdev  # noqa: E402
 
 DEFAULT_ETFS = ["XLU", "XLF", "XLK", "XLC", "XLE", "IWM", "DIA"]
 
