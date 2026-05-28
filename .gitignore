@@ -88,3 +88,6 @@ data/*.csv
 data/*.parquet
 *.xlsx
 !Strategy Relevant/*.xlsx
+
+# Private strategy docs — never publish
+Strategy Relevant/
